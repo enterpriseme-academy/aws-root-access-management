@@ -226,15 +226,6 @@ resource "aws_api_gateway_method" "create_root_login_profile_options" {
   authorization = "NONE"
 }
 
-resource "aws_api_gateway_integration" "unlock_s3_bucket" {
-  rest_api_id             = aws_api_gateway_rest_api.root_access_api.id
-  resource_id             = aws_api_gateway_resource.unlock_s3_bucket_bucket.id
-  http_method             = aws_api_gateway_method.unlock_s3_bucket_post.http_method
-  integration_http_method = "POST"
-  type                    = "AWS_PROXY"
-  uri                     = module.unlock_s3_bucket_lambda.lambda_function_invoke_arn
-}
-
 resource "aws_api_gateway_integration" "delete_root_login_profile" {
   rest_api_id             = aws_api_gateway_rest_api.root_access_api.id
   resource_id             = aws_api_gateway_resource.delete_root_login_profile_account.id
@@ -251,6 +242,15 @@ resource "aws_api_gateway_integration" "create_root_login_profile" {
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
   uri                     = module.create_root_login_profile_lambda.lambda_function_invoke_arn
+}
+
+resource "aws_api_gateway_integration" "unlock_s3_bucket" {
+  rest_api_id             = aws_api_gateway_rest_api.root_access_api.id
+  resource_id             = aws_api_gateway_resource.unlock_s3_bucket_bucket.id
+  http_method             = aws_api_gateway_method.unlock_s3_bucket_post.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = module.unlock_s3_bucket_lambda.lambda_function_invoke_arn
 }
 
 resource "aws_api_gateway_integration" "unlock_s3_bucket_get" {
@@ -273,29 +273,41 @@ resource "aws_api_gateway_integration" "unlock_s3_bucket_options" {
   }
 }
 
-resource "aws_api_gateway_integration" "delete_root_login_profile_options" {
-  rest_api_id             = aws_api_gateway_rest_api.root_access_api.id
-  resource_id             = aws_api_gateway_resource.delete_root_login_profile_account.id
-  http_method             = aws_api_gateway_method.delete_root_login_profile_options.http_method
-  type                    = "MOCK"
-  integration_http_method = "OPTIONS"
-  request_templates = {
-    "application/json" = "{\"statusCode\": 200}"
+resource "aws_api_gateway_method_response" "unlock_s3_bucket_options" {
+  rest_api_id = aws_api_gateway_rest_api.root_access_api.id
+  resource_id = aws_api_gateway_resource.unlock_s3_bucket_bucket.id
+  http_method = aws_api_gateway_method.unlock_s3_bucket_options.http_method
+  status_code = "200"
+
+  response_models = {
+    "application/json" = "Empty"
+  }
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Origin"  = true
+    "method.response.header.Access-Control-Allow-Methods" = true
+    "method.response.header.Access-Control-Allow-Headers" = true
   }
 }
 
-resource "aws_api_gateway_integration" "create_root_login_profile_options" {
-  rest_api_id             = aws_api_gateway_rest_api.root_access_api.id
-  resource_id             = aws_api_gateway_resource.create_root_login_profile_account.id
-  http_method             = aws_api_gateway_method.create_root_login_profile_options.http_method
-  type                    = "MOCK"
-  integration_http_method = "OPTIONS"
-  request_templates = {
-    "application/json" = "{\"statusCode\": 200}"
+resource "aws_api_gateway_integration_response" "unlock_s3_bucket_options" {
+  rest_api_id = aws_api_gateway_rest_api.root_access_api.id
+  resource_id = aws_api_gateway_resource.unlock_s3_bucket_bucket.id
+  http_method = aws_api_gateway_method.unlock_s3_bucket_options.http_method
+  status_code = aws_api_gateway_method_response.unlock_s3_bucket_options.status_code
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Origin"  = "'*'"
+    "method.response.header.Access-Control-Allow-Methods" = "'GET,POST,OPTIONS'"
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
   }
+
+  response_templates = {
+    "application/json" = ""
+  }
+  depends_on = [aws_api_gateway_integration.unlock_s3_bucket_options]
 }
 
-# Lambda permissions
 resource "aws_lambda_permission" "unlock_s3_bucket" {
   statement_id  = "AllowAPIGatewayInvokeUnlockS3Bucket"
   action        = "lambda:InvokeFunction"

@@ -46,11 +46,7 @@ function deleteBucketPolicy() {
     const accountNumber = document.getElementById('accountNumber').value;
     const bucketName = document.getElementById('bucketName').value;
     fetch(`https://upvs5kpmgb.execute-api.eu-central-1.amazonaws.com/prod/unlock-s3-bucket/${accountNumber}/${bucketName}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ account_number: accountNumber, bucket: bucketName })
+        method: 'POST'
     })
     .then(response => {
         if (response.ok) {
