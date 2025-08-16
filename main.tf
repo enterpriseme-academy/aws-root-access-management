@@ -24,7 +24,7 @@ module "unlock_s3_bucket_lambda" {
     POWERTOOLS_LOG_LEVEL             = "INFO"
     POWERTOOLS_METRICS_NAMESPACE     = "AWSRootAccessManagement"
   }
-  create_role                = true
+  create_role              = true
   attach_policy_statements = true
   policy_statements = [
     {
@@ -44,7 +44,7 @@ module "delete_root_login_profile_lambda" {
   version = "8.0.1"
 
   function_name = "delete_root_login_profile"
-  description   = "Delete root login profile and deactivate MFA devices"
+  description   = "Delete root login profile"
   handler       = "delete_root_login_profile.lambda_handler"
   runtime       = "python3.12"
   publish       = true
@@ -62,7 +62,7 @@ module "delete_root_login_profile_lambda" {
     POWERTOOLS_LOG_LEVEL             = "INFO"
     POWERTOOLS_METRICS_NAMESPACE     = "AWSRootAccessManagement"
   }
-  create_role                = true
+  create_role              = true
   attach_policy_statements = true
   policy_statements = [
     {
@@ -81,9 +81,9 @@ module "create_root_login_profile_lambda" {
   source  = "terraform-aws-modules/lambda/aws"
   version = "8.0.1"
 
-  function_name = "create_root_login_profile_lambda"
+  function_name = "create_root_login_profile"
   description   = "Create root login profile"
-  handler       = "create_root_login_profile_lambda.lambda_handler"
+  handler       = "create_root_login_profile.lambda_handler"
   runtime       = "python3.12"
   publish       = true
   timeout       = 30
@@ -100,7 +100,7 @@ module "create_root_login_profile_lambda" {
     POWERTOOLS_LOG_LEVEL             = "INFO"
     POWERTOOLS_METRICS_NAMESPACE     = "AWSRootAccessManagement"
   }
-  create_role                = true
+  create_role              = true
   attach_policy_statements = true
   policy_statements = [
     {
@@ -164,10 +164,11 @@ resource "aws_api_gateway_resource" "create_root_login_profile_account" {
 
 # Methods
 resource "aws_api_gateway_method" "unlock_s3_bucket_post" {
-  rest_api_id   = aws_api_gateway_rest_api.root_access_api.id
-  resource_id   = aws_api_gateway_resource.unlock_s3_bucket_bucket.id
-  http_method   = "POST"
-  authorization = "NONE"
+  rest_api_id      = aws_api_gateway_rest_api.root_access_api.id
+  resource_id      = aws_api_gateway_resource.unlock_s3_bucket_bucket.id
+  http_method      = "POST"
+  authorization    = "NONE"
+  api_key_required = true
   request_parameters = {
     "method.request.path.account_number" = true
     "method.request.path.bucket_name"    = true
@@ -175,30 +176,33 @@ resource "aws_api_gateway_method" "unlock_s3_bucket_post" {
 }
 
 resource "aws_api_gateway_method" "delete_root_login_profile_post" {
-  rest_api_id   = aws_api_gateway_rest_api.root_access_api.id
-  resource_id   = aws_api_gateway_resource.delete_root_login_profile_account.id
-  http_method   = "POST"
-  authorization = "NONE"
+  rest_api_id      = aws_api_gateway_rest_api.root_access_api.id
+  resource_id      = aws_api_gateway_resource.delete_root_login_profile_account.id
+  http_method      = "POST"
+  authorization    = "NONE"
+  api_key_required = true
   request_parameters = {
     "method.request.path.account_number" = true
   }
 }
 
 resource "aws_api_gateway_method" "create_root_login_profile_post" {
-  rest_api_id   = aws_api_gateway_rest_api.root_access_api.id
-  resource_id   = aws_api_gateway_resource.create_root_login_profile_account.id
-  http_method   = "POST"
-  authorization = "NONE"
+  rest_api_id      = aws_api_gateway_rest_api.root_access_api.id
+  resource_id      = aws_api_gateway_resource.create_root_login_profile_account.id
+  http_method      = "POST"
+  authorization    = "NONE"
+  api_key_required = true
   request_parameters = {
     "method.request.path.account_number" = true
   }
 }
 
 resource "aws_api_gateway_method" "unlock_s3_bucket_get" {
-  rest_api_id   = aws_api_gateway_rest_api.root_access_api.id
-  resource_id   = aws_api_gateway_resource.unlock_s3_bucket_bucket.id
-  http_method   = "GET"
-  authorization = "NONE"
+  rest_api_id      = aws_api_gateway_rest_api.root_access_api.id
+  resource_id      = aws_api_gateway_resource.unlock_s3_bucket_bucket.id
+  http_method      = "GET"
+  authorization    = "NONE"
+  api_key_required = true
   request_parameters = {
     "method.request.path.account_number" = true
     "method.request.path.bucket_name"    = true
@@ -358,16 +362,16 @@ resource "aws_api_gateway_stage" "prod" {
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.api_gw_access_logs.arn
     format = jsonencode({
-      requestId      = "$context.requestId"
-      ip             = "$context.identity.sourceIp"
-      requestTime    = "$context.requestTime"
-      httpMethod     = "$context.httpMethod"
-      resourcePath   = "$context.resourcePath"
-      status         = "$context.status"
-      protocol       = "$context.protocol"
-      responseLength = "$context.responseLength"
+      requestId         = "$context.requestId"
+      ip                = "$context.identity.sourceIp"
+      requestTime       = "$context.requestTime"
+      httpMethod        = "$context.httpMethod"
+      resourcePath      = "$context.resourcePath"
+      status            = "$context.status"
+      protocol          = "$context.protocol"
+      responseLength    = "$context.responseLength"
       integrationStatus = "$context.integrationStatus"
-      errorMessage   = "$context.error.message"
+      errorMessage      = "$context.error.message"
     })
   }
 }
@@ -398,4 +402,29 @@ resource "aws_iam_role_policy_attachment" "apigw_cloudwatch" {
 
 resource "aws_api_gateway_account" "account" {
   cloudwatch_role_arn = aws_iam_role.apigw_cloudwatch_role.arn
+}
+
+resource "aws_api_gateway_api_key" "root_access_api_key" {
+  name        = "RootAccessApiKey"
+  description = "API Key for Root Access Management"
+  enabled     = true
+}
+
+resource "aws_api_gateway_usage_plan" "root_access_usage_plan" {
+  name = "RootAccessUsagePlan"
+  api_stages {
+    api_id = aws_api_gateway_rest_api.root_access_api.id
+    stage  = aws_api_gateway_stage.prod.stage_name
+  }
+}
+
+resource "aws_api_gateway_usage_plan_key" "root_access_usage_plan_key" {
+  key_id        = aws_api_gateway_api_key.root_access_api_key.id
+  key_type      = "API_KEY"
+  usage_plan_id = aws_api_gateway_usage_plan.root_access_usage_plan.id
+}
+
+output "root_access_api_key_value" {
+  value     = aws_api_gateway_api_key.root_access_api_key.value
+  sensitive = true
 }
