@@ -1,48 +1,50 @@
-# Simple Static Website
+# Simple Static Website for AWS Root Access Management
 
-This project is a simple static website that allows users to interact with AWS S3 bucket policies. It provides an interface to retrieve and delete S3 bucket policies using API calls.
-
-## Project Structure
-
-```
-simple-static-website
-├── index.html          # Main HTML document for the static website
-├── src
-│   └── scripts.js      # JavaScript code for handling API calls
-└── README.md           # Documentation for the project
-```
+This static website provides a user-friendly interface to interact with the AWS Root Access Management API.  
+You can view and delete S3 bucket policies, and manage root account credentials using your API Gateway endpoints.
 
 ## Features
 
-- Input field for entering the S3 bucket name.
-- Button to retrieve the S3 bucket policy via a GET API call.
-- Button to delete the S3 bucket policy via a POST API call.
-- Display of the S3 bucket policy in JSON format.
-
-## Getting Started
-
-1. Clone the repository:
-   ```
-   git clone <repository-url>
-   ```
-
-2. Navigate to the project directory:
-   ```
-   cd simple-static-website
-   ```
-
-3. Open `index.html` in a web browser to view the static website.
+- **View S3 Bucket Policy**: Enter AWS Account Number and S3 Bucket Name, then click "Get S3 Bucket Policy" to view the current policy.
+- **Delete S3 Bucket Policy**: Enter AWS Account Number and S3 Bucket Name, then click "Delete S3 Bucket Policy" to remove the policy.
+- **Create Root Account**: Enter AWS Account Number and click "Create Root Account" to create a root login profile.
+- **Delete Root Account**: Enter AWS Account Number and click "Delete Root Account" to delete the root login profile and deactivate MFA.
 
 ## Usage
 
-- Enter the S3 bucket name in the input field.
-- Click "Get S3 bucket policy" to retrieve and display the policy.
-- Click "Delete S3 bucket policy" to remove the policy from the specified S3 bucket.
+1. Open `index.html` in your browser.
+2. Fill in the required fields:
+   - **AWS Account Number** (required for all actions)
+   - **S3 Bucket Name** (required for bucket policy actions)
+3. Click the appropriate button for your desired action.
 
-## API Endpoints
+## API Integration
 
-- **GET** `/api/get-bucket-policy`: Retrieves the S3 bucket policy.
-- **POST** `/api/delete-bucket-policy`: Deletes the S3 bucket policy.
+- The website calls your API Gateway endpoints:
+  - `GET /prod/unlock-s3-bucket/{account_number}/{bucket_name}` (Get S3 Bucket Policy)
+  - `POST /prod/unlock-s3-bucket/{account_number}/{bucket_name}` (Delete S3 Bucket Policy)
+  - `POST /prod/create-root-login-profile/{account_number}` (Create Root Account)
+  - `POST /prod/delete-root-login-profile/{account_number}` (Delete Root Account)
+- All requests require an API key, which is included in the `x-api-key` header in `src/scripts.js`.
+
+## Output Formatting
+
+- S3 bucket policy JSON is displayed with syntax highlighting and a dark theme, similar to VS Code.
+
+## Customization
+
+- Update the API endpoint URLs and API key in `src/scripts.js` if your deployment changes.
+- You can further style the website by editing the `<style>` section in `index.html`.
+
+## Security
+
+- Your API key is hardcoded in `src/scripts.js` for demonstration.  
+  For production, consider a more secure approach.
+
+## Troubleshooting
+
+- If you see CORS errors, ensure your API Gateway is configured with OPTIONS methods and CORS headers.
+- If you see authentication errors, verify your API key and endpoint URLs.
 
 ## License
 
