@@ -56,7 +56,7 @@ def create_root_login_profile(account_id):
 
     # create root login profile
     try:
-        iam.create_login_profile(UserName="root")
+        iam.create_login_profile()
         logger.info("Root login profile created successfully.")
     except Exception as e:
         logger.error(f"Error creaing root login profile: {e}")
@@ -65,7 +65,8 @@ def create_root_login_profile(account_id):
 
 def lambda_handler(event, context):
     logger.info("Starting creating root login profile", extra={"event": event})
-    account_id = event.get("pathParameters", {}).get("account_number")
+    path_params = event.get("pathParameters", {})
+    account_number = path_params.get("account_number")
 
     cors_headers = {
         "Access-Control-Allow-Origin": "*",
@@ -73,7 +74,7 @@ def lambda_handler(event, context):
         "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
     }
 
-    if not account_id:
+    if not account_number:
         logger.error("Missing account_number in path parameters")
         return {
             "statusCode": 400,
@@ -86,7 +87,7 @@ def lambda_handler(event, context):
             ),
         }
     try:
-        create_root_login_profile(account_id)
+        create_root_login_profile(account_number)
         return {
             "statusCode": 200,
             "headers": cors_headers,
@@ -113,5 +114,7 @@ def lambda_handler(event, context):
 
 if __name__ == "__main__":
     os.environ["LOCAL_TEST"] = "true"
-    test_event = {}
+    test_event = {
+        "pathParameters": {"account_number": "535294143734"},
+    }
     lambda_handler(test_event, None)

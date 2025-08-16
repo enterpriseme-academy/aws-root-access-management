@@ -56,7 +56,7 @@ def delete_root_login_profile_and_mfa(account_id):
 
     # Delete root login profile
     try:
-        iam.delete_login_profile(UserName="root")
+        iam.delete_login_profile()
         logger.info("Root login profile deleted successfully.")
     except iam.exceptions.NoSuchEntityException:
         logger.info("No login profile found for root user.")
@@ -64,20 +64,20 @@ def delete_root_login_profile_and_mfa(account_id):
         logger.error(f"Error deleting root login profile: {e}")
         raise
 
-    # List MFA devices for root user
-    try:
-        response = iam.list_mfa_devices(UserName="root")
-        mfa_devices = response.get("MFADevices", [])
-        if not mfa_devices:
-            logger.info("No MFA devices found for root user.")
-        else:
-            for device in mfa_devices:
-                serial_number = device["SerialNumber"]
-                iam.deactivate_mfa_device(UserName="root", SerialNumber=serial_number)
-                logger.info(f"MFA device {serial_number} deactivated for root user.")
-    except Exception as e:
-        logger.error(f"Error deactivating MFA device: {e}")
-        raise
+    # # List MFA devices for root user
+    # try:
+    #     response = iam.list_mfa_devices(UserName="root")
+    #     mfa_devices = response.get("MFADevices", [])
+    #     if not mfa_devices:
+    #         logger.info("No MFA devices found for root user.")
+    #     else:
+    #         for device in mfa_devices:
+    #             serial_number = device["SerialNumber"]
+    #             iam.deactivate_mfa_device(UserName="root", SerialNumber=serial_number)
+    #             logger.info(f"MFA device {serial_number} deactivated for root user.")
+    # except Exception as e:
+    #     logger.error(f"Error deactivating MFA device: {e}")
+    #     raise
 
 
 def lambda_handler(event, context):
@@ -132,5 +132,7 @@ def lambda_handler(event, context):
 
 if __name__ == "__main__":
     os.environ["LOCAL_TEST"] = "true"
-    test_event = {}
+    test_event = {
+        "pathParameters": {"account_number": "068167017169"},
+    }
     lambda_handler(test_event, None)

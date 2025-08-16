@@ -64,10 +64,7 @@ function deleteBucketPolicy() {
 function deleteRootAccount() {
     const accountNumber = document.getElementById('accountNumber').value;
     fetch(`https://upvs5kpmgb.execute-api.eu-central-1.amazonaws.com/prod/delete-root-login-profile/${accountNumber}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        }
+        method: 'POST'
     })
     .then(response => response.json())
     .then(data => {
@@ -85,10 +82,7 @@ function deleteRootAccount() {
 function createRootAccount() {
     const accountNumber = document.getElementById('accountNumber').value;
     fetch(`https://upvs5kpmgb.execute-api.eu-central-1.amazonaws.com/prod/create-root-login-profile/${accountNumber}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        }
+        method: 'POST'
     })
     .then(response => response.json())
     .then(data => {
