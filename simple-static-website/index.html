@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S3 Bucket Policy Manager</title>
+    <script src="src/scripts.js" defer></script>
+    <style>
+        body {
+            background: #ffffff;
+            color: #1e1e1e;
+        }
+        pre {
+            background: #ffffff;
+            color: #1e1e1e;
+            padding: 1em;
+            border-radius: 6px;
+            font-size: 1em;
+        }
+        code {
+            background: transparent;
+            color: #1e1e1e;
+            font-family: "Fira Mono", "Consolas", "Menlo", "Monaco", monospace;
+            font-size: 1em;
+        }
+        .json-key { color: #9cdcfe; }
+        .json-string { color: #ce9178; }
+        .json-number { color: #b5cea8; }
+        .json-boolean { color: #569cd6; }
+        .json-null { color: #569cd6; }
+    </style>
+</head>
+<body>
+    <h1>S3 Bucket Unlocker</h1>
+    <input type="text" id="accountNumber" placeholder="Enter AWS Account Number" />
+    <input type="text" id="bucketName" placeholder="Enter S3 Bucket Name" />
+    <button id="getPolicyButton">Get S3 Bucket Policy</button>
+    <button id="deletePolicyButton">Delete S3 Bucket Policy</button>
+    <pre id="policyOutput"><code class="json"></code></pre>
+
+    <h1>Root Account Management</h1>
+    <input type="text" id="accountNumber" placeholder="Enter AWS Account Number" />
+    <button id="deleteRootAccountButton">Delete Root Account</button>
+    <button id="createRootAccountButton">Create Root Account</button>
+</body>
+</html>
