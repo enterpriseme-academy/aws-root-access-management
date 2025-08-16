@@ -211,4 +211,5 @@ builds/
 .terraform.lock.hcl
 terraform.tfstate
 terraform.tfstate.backup
-.terraform/.DS_Store
+.terraform/
+.DS_Store
