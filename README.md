@@ -99,8 +99,6 @@ A simple static website is included in `simple-static-website/` for interacting 
 
 ## Troubleshooting
 
-- If you see CORS errors, ensure OPTIONS methods are deployed for all resources.
-- If you see `Missing Authentication Token`, check the resource path and redeploy the API.
 - For Lambda errors, check CloudWatch logs for debugging information.
 
 ## Requirements
