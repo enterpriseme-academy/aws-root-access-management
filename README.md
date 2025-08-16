@@ -46,7 +46,7 @@ This project provides a secure REST API for managing AWS root account credential
 After deployment, your API key will be shown as a Terraform output:
 
 ```
-root_access_api_key_value = FugkibvSVV1mEUtFHm4WX1FvR6MOgigU8gEORyG1
+root_access_api_key_value = xxxxxxxxxxxxxxxxx
 ```
 
 **Include this key in all API requests:**
