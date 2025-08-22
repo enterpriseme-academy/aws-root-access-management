@@ -34,7 +34,7 @@ function getBucketPolicy() {
     {
       method: "GET",
       headers: {
-        "x-api-key": "FugkibvSVV1mEUtFHm4WX1FvR6MOgigU8gEORyG1",
+        "x-api-key": "xxxxxxxxxxxxxxxxxxxxxxxxxxx",
       },
     }
   )
@@ -66,7 +66,7 @@ function deleteBucketPolicy() {
     {
       method: "POST",
       headers: {
-        "x-api-key": "FugkibvSVV1mEUtFHm4WX1FvR6MOgigU8gEORyG1",
+        "x-api-key": "xxxxxxxxxxxxxxxxxxxxxxxxxxx",
       },
     }
   )
@@ -90,7 +90,7 @@ function deleteRootAccount() {
     {
       method: "POST",
       headers: {
-        "x-api-key": "FugkibvSVV1mEUtFHm4WX1FvR6MOgigU8gEORyG1",
+        "x-api-key": "xxxxxxxxxxxxxxxxxxxxxxxxxxx",
       },
     }
   )
@@ -114,7 +114,7 @@ function createRootAccount() {
     {
       method: "POST",
       headers: {
-        "x-api-key": "FugkibvSVV1mEUtFHm4WX1FvR6MOgigU8gEORyG1",
+        "x-api-key": "xxxxxxxxxxxxxxxxxxxxxxxxxxx",
       },
     }
   )
