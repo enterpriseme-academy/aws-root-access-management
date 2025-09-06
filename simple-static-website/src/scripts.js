@@ -30,7 +30,7 @@ function getBucketPolicy() {
   const accountNumber = document.getElementById("accountNumber").value;
   const bucketName = document.getElementById("bucketName").value;
   fetch(
-    `https://upvs5kpmgb.execute-api.eu-central-1.amazonaws.com/prod/unlock-s3-bucket/${accountNumber}/${bucketName}`,
+    `http://ram.enterpriseme.academy/unlock-s3-bucket/${accountNumber}/${bucketName}`,
     {
       method: "GET",
       headers: {
@@ -62,7 +62,7 @@ function deleteBucketPolicy() {
   const accountNumber = document.getElementById("accountNumber").value;
   const bucketName = document.getElementById("bucketName").value;
   fetch(
-    `https://upvs5kpmgb.execute-api.eu-central-1.amazonaws.com/prod/unlock-s3-bucket/${accountNumber}/${bucketName}`,
+    `http://ram.enterpriseme.academy/unlock-s3-bucket/${accountNumber}/${bucketName}`,
     {
       method: "POST",
       headers: {
@@ -86,7 +86,7 @@ function deleteBucketPolicy() {
 function deleteRootAccount() {
   const accountNumber = document.getElementById("accountNumber").value;
   fetch(
-    `https://upvs5kpmgb.execute-api.eu-central-1.amazonaws.com/prod/delete-root-login-profile/${accountNumber}`,
+    `http://ram.enterpriseme.academy/delete-root-login-profile/${accountNumber}`,
     {
       method: "POST",
       headers: {
@@ -110,7 +110,7 @@ function deleteRootAccount() {
 function createRootAccount() {
   const accountNumber = document.getElementById("accountNumber").value;
   fetch(
-    `https://upvs5kpmgb.execute-api.eu-central-1.amazonaws.com/prod/create-root-login-profile/${accountNumber}`,
+    `http://ram.enterpriseme.academy/create-root-login-profile/${accountNumber}`,
     {
       method: "POST",
       headers: {

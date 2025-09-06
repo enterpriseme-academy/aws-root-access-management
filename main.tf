@@ -1,4 +1,164 @@
 # main.tf for AWS Root Access Management module
+resource "aws_lb" "main" {
+  name               = "ram-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [] # Add your security group IDs here
+  subnets            = [] # Add your public subnet IDs here
+}
+
+resource "aws_lb_target_group" "unlock_s3_bucket" {
+  name        = "unlock-s3-bucket-tg"
+  target_type = "lambda"
+}
+
+resource "aws_lb_target_group_attachment" "unlock_s3_bucket" {
+  target_group_arn = aws_lb_target_group.unlock_s3_bucket.arn
+  target_id        = module.unlock_s3_bucket_lambda.lambda_function_arn
+}
+
+resource "aws_lb_target_group" "delete_root_login_profile" {
+  name        = "delete-root-login-profile-tg"
+  target_type = "lambda"
+}
+
+resource "aws_lb_target_group_attachment" "delete_root_login_profile" {
+  target_group_arn = aws_lb_target_group.delete_root_login_profile.arn
+  target_id        = module.delete_root_login_profile_lambda.lambda_function_arn
+}
+
+resource "aws_lb_target_group" "create_root_login_profile" {
+  name        = "create-root-login-profile-tg"
+  target_type = "lambda"
+}
+
+resource "aws_lb_target_group_attachment" "create_root_login_profile" {
+  target_group_arn = aws_lb_target_group.create_root_login_profile.arn
+  target_id        = module.create_root_login_profile_lambda.lambda_function_arn
+}
+
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = aws_lb.main.arn
+  port              = "80"
+  protocol          = "HTTP"
+  default_action {
+    type = "fixed-response"
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "Not Found"
+      status_code  = "404"
+    }
+  }
+}
+
+# HTTPS listener using ACM module output
+resource "aws_lb_listener" "https" {
+  load_balancer_arn = aws_lb.main.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = module.acm.acm_certificate_arn
+  default_action {
+    type = "fixed-response"
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "Not Found"
+      status_code  = "404"
+    }
+  }
+}
+
+resource "aws_lb_listener_rule" "unlock_s3_bucket" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 10
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.unlock_s3_bucket.arn
+  }
+  condition {
+    path_pattern {
+      values = ["/unlock-s3-bucket/*"]
+    }
+  }
+}
+
+resource "aws_lb_listener_rule" "delete_root_login_profile" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 20
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.delete_root_login_profile.arn
+  }
+  condition {
+    path_pattern {
+      values = ["/delete-root-login-profile/*"]
+    }
+  }
+}
+
+resource "aws_lb_listener_rule" "create_root_login_profile" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 30
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.create_root_login_profile.arn
+  }
+  condition {
+    path_pattern {
+      values = ["/create-root-login-profile/*"]
+    }
+  }
+}
+
+# Lambda permissions for ALB invocation
+resource "aws_lambda_permission" "alb_unlock_s3_bucket" {
+  statement_id  = "AllowExecutionFromALB"
+  action        = "lambda:InvokeFunction"
+  function_name = module.unlock_s3_bucket_lambda.lambda_function_name
+  principal     = "elasticloadbalancing.amazonaws.com"
+  source_arn    = aws_lb_target_group.unlock_s3_bucket.arn
+}
+
+resource "aws_lambda_permission" "alb_delete_root_login_profile" {
+  statement_id  = "AllowExecutionFromALB"
+  action        = "lambda:InvokeFunction"
+  function_name = module.delete_root_login_profile_lambda.lambda_function_name
+  principal     = "elasticloadbalancing.amazonaws.com"
+  source_arn    = aws_lb_target_group.delete_root_login_profile.arn
+}
+
+resource "aws_lambda_permission" "alb_create_root_login_profile" {
+  statement_id  = "AllowExecutionFromALB"
+  action        = "lambda:InvokeFunction"
+  function_name = module.create_root_login_profile_lambda.lambda_function_name
+  principal     = "elasticloadbalancing.amazonaws.com"
+  source_arn    = aws_lb_target_group.create_root_login_profile.arn
+}
+
+# ACM certificate for custom domain using module
+module "acm" {
+  source  = "terraform-aws-modules/acm/aws"
+  version = "4.0.0"
+
+  domain_name               = "ram.enterpriseme.academy"
+  zone_id                   = "Z05127783I5U2J2XIK6J8"
+  validation_method         = "DNS"
+  create_route53_records    = true
+  subject_alternative_names = []
+  wait_for_validation       = true
+}
+
+# Route 53 record for ALB
+resource "aws_route53_record" "ram" {
+  zone_id = "Z05127783I5U2J2XIK6J8"
+  name    = "ram.enterpriseme.academy"
+  type    = "A"
+  alias {
+    name                   = aws_lb.main.dns_name
+    zone_id                = aws_lb.main.zone_id
+    evaluate_target_health = true
+  }
+}
 data "aws_region" "current" {}
 
 module "unlock_s3_bucket_lambda" {
