@@ -28,7 +28,7 @@ function syntaxHighlight(json) {
 
 function getBucketPolicy() {
   showSpinner();
-  const accountNumber = document.getElementById("accountNumber").value;
+  const accountNumber = document.getElementById("s3accountNumber").value;
   const bucketName = document.getElementById("bucketName").value;
   fetch(
     `https://ram.enterpriseme.academy/unlock-s3-bucket/${accountNumber}/${bucketName}`,
@@ -60,7 +60,7 @@ function getBucketPolicy() {
 
 function deleteBucketPolicy() {
   showSpinner();
-  const accountNumber = document.getElementById("accountNumber").value;
+  const accountNumber = document.getElementById("s3accountNumber").value;
   const bucketName = document.getElementById("bucketName").value;
   fetch(
     `https://ram.enterpriseme.academy/unlock-s3-bucket/${accountNumber}/${bucketName}`,
