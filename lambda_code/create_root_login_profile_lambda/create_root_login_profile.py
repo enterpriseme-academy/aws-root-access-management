@@ -1,3 +1,22 @@
+DOMAIN = os.environ.get("DOMAIN", "*")
+HEADERS = {
+    "Access-Control-Allow-Origin": DOMAIN,
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Content-Type": "application/json",
+}
+
+
+def alb_response(status_code, body_dict, status_description=None, headers=None):
+    return {
+        "statusCode": status_code,
+        "statusDescription": status_description or f"{status_code} OK",
+        "isBase64Encoded": False,
+        "headers": headers or HEADERS,
+        "body": json.dumps(body_dict),
+    }
+
+
 import boto3
 import os
 import json
@@ -73,39 +92,35 @@ def lambda_handler(event, context):
 
     if not account_id:
         logger.error("Missing account_id in path parameters")
-        return {
-            "statusCode": 400,
-            "body": json.dumps(
-                {
-                    "status": "error",
-                    "account_id": None,
-                    "message": "Missing account_id in path parameters",
-                }
-            ),
-        }
+        return alb_response(
+            400,
+            {
+                "status": "error",
+                "account_id": None,
+                "message": "Missing account_id in path parameters",
+            },
+            "400 Bad Request",
+        )
     try:
         create_root_login_profile(account_id)
-        return {
-            "statusCode": 200,
-            "body": json.dumps(
-                {
-                    "status": "success",
-                    "account_id": account_id,
-                    "message": "Root login profile created.",
-                }
-            ),
-        }
+        return alb_response(
+            200,
+            {
+                "status": "success",
+                "account_id": account_id,
+                "message": "Root login profile created.",
+            },
+        )
     except Exception as e:
         logger.error(f"Error creating root login profile: {e}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps(
-                {
-                    "status": "error",
-                    "message": f"Error creating root login profile: {str(e)}",
-                }
-            ),
-        }
+        return alb_response(
+            500,
+            {
+                "status": "error",
+                "message": f"Error creating root login profile: {str(e)}",
+            },
+            "500 Internal Server Error",
+        )
 
 
 if __name__ == "__main__":

@@ -3,44 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>S3 Bucket Policy Manager</title>
+        <title>S3 Bucket Policy Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="src/spinner.js" defer></script>
     <script src="src/scripts.js" defer></script>
-    <style>
-        body {
-            background: #ffffff;
-            color: #1e1e1e;
-        }
-        pre {
-            background: #ffffff;
-            color: #1e1e1e;
-            padding: 1em;
-            border-radius: 6px;
-            font-size: 1em;
-        }
-        code {
-            background: transparent;
-            color: #1e1e1e;
-            font-family: "Fira Mono", "Consolas", "Menlo", "Monaco", monospace;
-            font-size: 1em;
-        }
-        .json-key { color: #9cdcfe; }
-        .json-string { color: #ce9178; }
-        .json-number { color: #b5cea8; }
-        .json-boolean { color: #569cd6; }
-        .json-null { color: #569cd6; }
-    </style>
+        <style>
+            .json-key { color: #0ea5e9; }
+            .json-string { color: #f59e42; }
+            .json-number { color: #22c55e; }
+            .json-boolean { color: #3b82f6; }
+            .json-null { color: #3b82f6; }
+        </style>
 </head>
 <body>
-    <h1>S3 Bucket Unlocker</h1>
-    <input type="text" id="accountNumber" placeholder="Enter AWS Account Number" />
-    <input type="text" id="bucketName" placeholder="Enter S3 Bucket Name" />
-    <button id="getPolicyButton">Get S3 Bucket Policy</button>
-    <button id="deletePolicyButton">Delete S3 Bucket Policy</button>
-    <pre id="policyOutput"><code class="json"></code></pre>
+<body class="bg-gray-50 min-h-screen flex flex-col items-center py-8">
+    <!-- Progress Spinner -->
+    <div id="progressSpinner" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-20 z-50 hidden">
+        <svg class="animate-spin h-16 w-16 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+        </svg>
+    </div>
+    <div class="w-full max-w-2xl bg-white rounded-xl shadow-lg p-8 mb-8">
+        <h2 class="text-3xl font-bold mb-6 text-blue-800">Self Service Portal</h2>
+        <div class="mb-8">
+            <h3 class="text-xl font-semibold mb-4 text-blue-700">S3 Bucket Unlocker</h3>
+            <div class="flex flex-col gap-2 mb-4">
+                <input type="text" id="accountNumber" placeholder="Enter AWS Account Number" class="input input-bordered border-gray-300 rounded px-3 py-2" />
+                <input type="text" id="bucketName" placeholder="Enter S3 Bucket Name" class="input input-bordered border-gray-300 rounded px-3 py-2" />
+                <div class="flex gap-2">
+                    <button id="getPolicyButton" class="btn bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Get S3 Bucket Policy</button>
+                    <button id="deletePolicyButton" class="btn bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Delete S3 Bucket Policy</button>
+                </div>
+            </div>
+            <pre id="policyOutput" class="bg-gray-100 rounded p-4 overflow-x-auto"><code class="json"></code></pre>
+        </div>
+        <div>
+            <h3 class="text-xl font-semibold mb-4 text-blue-700">SQS Queue Unlocker</h3>
+            <div class="flex flex-col gap-2 mb-4">
+                <input type="text" id="sqsAccountNumber" placeholder="Enter AWS Account Number" class="input input-bordered border-gray-300 rounded px-3 py-2" />
+                <input type="text" id="queueName" placeholder="Enter SQS Queue Name" class="input input-bordered border-gray-300 rounded px-3 py-2" />
+                <div class="flex gap-2">
+                    <button id="getSqsPolicyButton" class="btn bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Get SQS Queue Policy</button>
+                    <button id="deleteSqsPolicyButton" class="btn bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Delete SQS Queue Policy</button>
+                </div>
+            </div>
+            <pre id="sqsPolicyOutput" class="bg-gray-100 rounded p-4 overflow-x-auto"><code class="json"></code></pre>
+        </div>
+    </div>
 
-    <h1>Root Account Management</h1>
-    <input type="text" id="accountNumber" placeholder="Enter AWS Account Number" />
-    <button id="deleteRootAccountButton">Delete Root Account</button>
-    <button id="createRootAccountButton">Create Root Account</button>
+    <div class="w-full max-w-2xl bg-white rounded-xl shadow-lg p-8">
+        <h2 class="text-3xl font-bold mb-6 text-blue-800">Admin Portal</h2>
+        <h3 class="text-xl font-semibold mb-4 text-blue-700">Root Account Management</h3>
+        <div class="flex flex-col gap-2 mb-4">
+            <input type="text" id="accountNumber" placeholder="Enter AWS Account Number" class="input input-bordered border-gray-300 rounded px-3 py-2" />
+            <div class="flex gap-2">
+                <button id="deleteRootAccountButton" class="btn bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700">Delete Root Account</button>
+                <button id="createRootAccountButton" class="btn bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Create Root Account</button>
+            </div>
+        </div>
+        <pre id="message" class="bg-gray-100 rounded p-4 overflow-x-auto"><code class="json"></code></pre>
+    </div>
 </body>
 </html>

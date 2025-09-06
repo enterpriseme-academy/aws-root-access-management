@@ -9,6 +9,23 @@ logger = Logger()
 
 TARGET_POLICY_NAME = "SQSUnlockQueuePolicy"
 PROFILE_NAME = "sandbox"  # Used only for local testing
+DOMAIN = os.environ.get("DOMAIN", "*")
+HEADERS = {
+    "Access-Control-Allow-Origin": DOMAIN,
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Content-Type": "application/json",
+}
+
+
+def alb_response(status_code, body_dict, status_description=None, headers=None):
+    return {
+        "statusCode": status_code,
+        "statusDescription": status_description or f"{status_code} OK",
+        "isBase64Encoded": False,
+        "headers": headers or HEADERS,
+        "body": json.dumps(body_dict),
+    }
 
 
 def get_boto3_session():
@@ -50,28 +67,26 @@ def lambda_handler(event, context):
 
     if not account_id:
         logger.error("Missing account_id in path parameters")
-        return {
-            "statusCode": 400,
-            "body": json.dumps(
-                {
-                    "status": "error",
-                    "account_id": None,
-                    "message": "Missing account_id in path parameters",
-                }
-            ),
-        }
+        return alb_response(
+            400,
+            {
+                "status": "error",
+                "account_id": None,
+                "message": "Missing account_id in path parameters",
+            },
+            "400 Bad Request",
+        )
     if not queue_name:
         logger.error("Missing queue_name in path parameters")
-        return {
-            "statusCode": 400,
-            "body": json.dumps(
-                {
-                    "status": "error",
-                    "account_id": account_id,
-                    "message": "Missing queue_name in path parameters",
-                }
-            ),
-        }
+        return alb_response(
+            400,
+            {
+                "status": "error",
+                "account_id": account_id,
+                "message": "Missing queue_name in path parameters",
+            },
+            "400 Bad Request",
+        )
 
     http_method = event.get("httpMethod", "POST")
 
@@ -102,16 +117,15 @@ def lambda_handler(event, context):
             queue_url = sqs.get_queue_url(QueueName=queue_name)["QueueUrl"]
         except Exception as e:
             logger.error(f"Failed to get SQS queue URL: {e}")
-            return {
-                "statusCode": 404,
-                "body": json.dumps(
-                    {
-                        "status": "not_found",
-                        "account_id": account_id,
-                        "message": f"Queue {queue_name} not found for {account_id}",
-                    }
-                ),
-            }
+            return alb_response(
+                404,
+                {
+                    "status": "not_found",
+                    "account_id": account_id,
+                    "message": f"Queue {queue_name} not found for {account_id}",
+                },
+                "404 Not Found",
+            )
 
         if http_method == "GET":
             # Return the queue policy
@@ -123,40 +137,36 @@ def lambda_handler(event, context):
                 if policy_str:
                     policy_json = json.loads(policy_str)
                     logger.info("Queue policy found", extra={"policy": policy_json})
-                    return {
-                        "statusCode": 200,
-                        "body": json.dumps(
-                            {
-                                "status": "success",
-                                "account_id": account_id,
-                                "resource_name": queue_name,
-                                "policy": policy_json,
-                            }
-                        ),
-                    }
+                    return alb_response(
+                        200,
+                        {
+                            "status": "success",
+                            "account_id": account_id,
+                            "resource_name": queue_name,
+                            "policy": policy_json,
+                        },
+                    )
                 else:
                     logger.info("Queue policy does not exist")
-                    return {
-                        "statusCode": 404,
-                        "body": json.dumps(
-                            {
-                                "status": "not_found",
-                                "account_id": account_id,
-                                "message": f"No queue policy found for {queue_name} on {account_id}",
-                            }
-                        ),
-                    }
+                    return alb_response(
+                        404,
+                        {
+                            "status": "not_found",
+                            "account_id": account_id,
+                            "message": f"No queue policy found for {queue_name} on {account_id}",
+                        },
+                        "404 Not Found",
+                    )
             except Exception as e:
                 logger.error(f"Error reading queue policy: {e}")
-                return {
-                    "statusCode": 500,
-                    "body": json.dumps(
-                        {
-                            "status": "error",
-                            "message": f"Error reading queue policy: {str(e)}",
-                        }
-                    ),
-                }
+                return alb_response(
+                    500,
+                    {
+                        "status": "error",
+                        "message": f"Error reading queue policy: {str(e)}",
+                    },
+                    "500 Internal Server Error",
+                )
 
         # POST method: unlock (delete) the queue policy
         # Check if queue policy exists
@@ -174,51 +184,45 @@ def lambda_handler(event, context):
             try:
                 sqs.set_queue_attributes(QueueUrl=queue_url, Attributes={"Policy": ""})
                 logger.info("Queue policy deleted successfully")
-                return {
-                    "statusCode": 200,
-                    "body": json.dumps(
-                        {
-                            "status": "unlocked",
-                            "account_id": account_id,
-                            "resource_name": queue_name,
-                            "message": f"Queue policy deleted for {queue_name} on {account_id}",
-                        }
-                    ),
-                }
+                return alb_response(
+                    200,
+                    {
+                        "status": "unlocked",
+                        "account_id": account_id,
+                        "resource_name": queue_name,
+                        "message": f"Queue policy deleted for {queue_name} on {account_id}",
+                    },
+                )
             except Exception as e:
                 logger.error(f"Failed to delete queue policy: {e}")
-                return {
-                    "statusCode": 500,
-                    "body": json.dumps(
-                        {
-                            "status": "error",
-                            "account_id": account_id,
-                            "message": f"Failed to delete queue policy: {str(e)}",
-                        }
-                    ),
-                }
-        else:
-            return {
-                "statusCode": 200,
-                "body": json.dumps(
+                return alb_response(
+                    500,
                     {
-                        "status": "not_locked",
+                        "status": "error",
                         "account_id": account_id,
-                        "message": f"No queue policy found for {queue_name} on {account_id}",
-                    }
-                ),
-            }
+                        "message": f"Failed to delete queue policy: {str(e)}",
+                    },
+                    "500 Internal Server Error",
+                )
+        else:
+            return alb_response(
+                200,
+                {
+                    "status": "not_locked",
+                    "account_id": account_id,
+                    "message": f"No queue policy found for {queue_name} on {account_id}",
+                },
+            )
     except Exception as e:
         logger.error(f"Unhandled exception: {e}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps(
-                {
-                    "status": "error",
-                    "message": f"Unhandled exception: {str(e)}",
-                }
-            ),
-        }
+        return alb_response(
+            500,
+            {
+                "status": "error",
+                "message": f"Unhandled exception: {str(e)}",
+            },
+            "500 Internal Server Error",
+        )
 
 
 if __name__ == "__main__":
