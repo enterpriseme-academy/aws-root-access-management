@@ -1,7 +1,7 @@
 # Simple Static Website for AWS Root Access Management
 
 This static website provides a user-friendly interface to interact with the AWS Root Access Management API.  
-You can view and delete S3 bucket policies, and manage root account credentials using your API Gateway endpoints.
+You can view and delete S3 bucket policies, and manage root account credentials using your endpoint.
 
 ## Features
 
@@ -20,12 +20,11 @@ You can view and delete S3 bucket policies, and manage root account credentials 
 
 ## API Integration
 
-- The website calls your API Gateway endpoints:
-  - `GET /prod/unlock-s3-bucket/{account_number}/{bucket_name}` (Get S3 Bucket Policy)
-  - `POST /prod/unlock-s3-bucket/{account_number}/{bucket_name}` (Delete S3 Bucket Policy)
-  - `POST /prod/create-root-login-profile/{account_number}` (Create Root Account)
-  - `POST /prod/delete-root-login-profile/{account_number}` (Delete Root Account)
-- All requests require an API key, which is included in the `x-api-key` header in `src/scripts.js`.
+- The website calls endpoint:
+  - `GET /unlock-s3-bucket/{account_number}/{bucket_name}` (Get S3 Bucket Policy)
+  - `POST /unlock-s3-bucket/{account_number}/{bucket_name}` (Delete S3 Bucket Policy)
+  - `POST /create-root-login-profile/{account_number}` (Create Root Account)
+  - `POST /delete-root-login-profile/{account_number}` (Delete Root Account)
 
 ## Output Formatting
 
@@ -40,12 +39,3 @@ You can view and delete S3 bucket policies, and manage root account credentials 
 
 - Your API key is hardcoded in `src/scripts.js` for demonstration.  
   For production, consider a more secure approach.
-
-## Troubleshooting
-
-- If you see CORS errors, ensure your API Gateway is configured with OPTIONS methods and CORS headers.
-- If you see authentication errors, verify your API key and endpoint URLs.
-
-## License
-
-This project is licensed under the MIT License.

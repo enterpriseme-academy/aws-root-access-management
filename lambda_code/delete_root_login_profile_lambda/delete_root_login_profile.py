@@ -64,43 +64,26 @@ def delete_root_login_profile_and_mfa(account_id):
         logger.error(f"Error deleting root login profile: {e}")
         raise
 
-    # # List MFA devices for root user
-    # try:
-    #     response = iam.list_mfa_devices(UserName="root")
-    #     mfa_devices = response.get("MFADevices", [])
-    #     if not mfa_devices:
-    #         logger.info("No MFA devices found for root user.")
-    #     else:
-    #         for device in mfa_devices:
-    #             serial_number = device["SerialNumber"]
-    #             iam.deactivate_mfa_device(UserName="root", SerialNumber=serial_number)
-    #             logger.info(f"MFA device {serial_number} deactivated for root user.")
-    # except Exception as e:
-    #     logger.error(f"Error deactivating MFA device: {e}")
-    #     raise
-
 
 def lambda_handler(event, context):
     logger.info(
         "Starting root login profile and MFA device deletion", extra={"event": event}
     )
-    account_id = event.get("pathParameters", {}).get("account_number")
-
-    cors_headers = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-    }
+    path_param = event.get("path", {})
+    try:
+        account_id = path_param.split("/")[2]
+    except (AttributeError, IndexError):
+        account_id = None
 
     if not account_id:
-        logger.error("Missing account_number in path parameters")
+        logger.error("Missing account_id in path parameters")
         return {
             "statusCode": 400,
-            "headers": cors_headers,
             "body": json.dumps(
                 {
                     "status": "error",
-                    "message": "Missing account_number in path parameters",
+                    "account_id": None,
+                    "message": "Missing account_id in path parameters",
                 }
             ),
         }
@@ -108,10 +91,10 @@ def lambda_handler(event, context):
         delete_root_login_profile_and_mfa(account_id)
         return {
             "statusCode": 200,
-            "headers": cors_headers,
             "body": json.dumps(
                 {
                     "status": "success",
+                    "account_id": account_id,
                     "message": "Root login profile deleted and MFA device(s) deactivated.",
                 }
             ),
@@ -120,7 +103,6 @@ def lambda_handler(event, context):
         logger.error(f"Error deleting root login profile or MFA: {e}")
         return {
             "statusCode": 500,
-            "headers": cors_headers,
             "body": json.dumps(
                 {
                     "status": "error",
@@ -133,6 +115,6 @@ def lambda_handler(event, context):
 if __name__ == "__main__":
     os.environ["LOCAL_TEST"] = "true"
     test_event = {
-        "pathParameters": {"account_number": "068167017169"},
+        "path": "/delete-root-login-profile/068167017169",
     }
     lambda_handler(test_event, None)

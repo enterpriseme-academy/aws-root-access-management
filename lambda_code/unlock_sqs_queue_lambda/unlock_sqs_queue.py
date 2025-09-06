@@ -7,7 +7,7 @@ from aws_lambda_powertools import Logger
 
 logger = Logger()
 
-TARGET_POLICY_NAME = "S3UnlockBucketPolicy"
+TARGET_POLICY_NAME = "SQSUnlockQueuePolicy"
 PROFILE_NAME = "sandbox"  # Used only for local testing
 
 
@@ -36,7 +36,7 @@ def assume_root(account_id, policy_name, duration_seconds=900):
 
 
 def lambda_handler(event, context):
-    logger.info("Starting unlock S3 bucket process", extra={"event": event})
+    logger.info("Starting unlock SQS queue process", extra={"event": event})
 
     path_param = event.get("path", {})
     try:
@@ -44,9 +44,9 @@ def lambda_handler(event, context):
     except (AttributeError, IndexError):
         account_id = None
     try:
-        bucket_name = path_param.split("/")[3]
+        queue_name = path_param.split("/")[3]
     except (AttributeError, IndexError):
-        bucket_name = None
+        queue_name = None
 
     if not account_id:
         logger.error("Missing account_id in path parameters")
@@ -60,15 +60,15 @@ def lambda_handler(event, context):
                 }
             ),
         }
-    if not bucket_name:
-        logger.error("Missing bucket_name in path parameters")
+    if not queue_name:
+        logger.error("Missing queue_name in path parameters")
         return {
             "statusCode": 400,
             "body": json.dumps(
                 {
                     "status": "error",
                     "account_id": account_id,
-                    "message": "Missing bucket_name in path parameters",
+                    "message": "Missing queue_name in path parameters",
                 }
             ),
         }
@@ -95,88 +95,105 @@ def lambda_handler(event, context):
                 aws_session_token=creds["SessionToken"],
             )
 
-        s3 = session.client("s3")
+        sqs = session.client("sqs")
+
+        # Get the queue URL
+        try:
+            queue_url = sqs.get_queue_url(QueueName=queue_name)["QueueUrl"]
+        except Exception as e:
+            logger.error(f"Failed to get SQS queue URL: {e}")
+            return {
+                "statusCode": 404,
+                "body": json.dumps(
+                    {
+                        "status": "not_found",
+                        "account_id": account_id,
+                        "message": f"Queue {queue_name} not found for {account_id}",
+                    }
+                ),
+            }
 
         if http_method == "GET":
-            # Return the bucket policy
+            # Return the queue policy
             try:
-                response = s3.get_bucket_policy(Bucket=bucket_name)
-                policy_json = json.loads(response["Policy"])
-                logger.info("Bucket policy found", extra={"policy": policy_json})
-                return {
-                    "statusCode": 200,
-                    "body": json.dumps(
-                        {
-                            "status": "success",
-                            "account_id": account_id,
-                            "resource_name": bucket_name,
-                            "policy": policy_json,
-                        }
-                    ),
-                }
-            except botocore.exceptions.ClientError as e:
-                error_code = e.response.get("Error", {}).get("Code")
-                if error_code == "NoSuchBucketPolicy":
-                    logger.info("Bucket policy does not exist")
+                attrs = sqs.get_queue_attributes(
+                    QueueUrl=queue_url, AttributeNames=["Policy"]
+                )
+                policy_str = attrs.get("Attributes", {}).get("Policy")
+                if policy_str:
+                    policy_json = json.loads(policy_str)
+                    logger.info("Queue policy found", extra={"policy": policy_json})
+                    return {
+                        "statusCode": 200,
+                        "body": json.dumps(
+                            {
+                                "status": "success",
+                                "account_id": account_id,
+                                "resource_name": queue_name,
+                                "policy": policy_json,
+                            }
+                        ),
+                    }
+                else:
+                    logger.info("Queue policy does not exist")
                     return {
                         "statusCode": 404,
                         "body": json.dumps(
                             {
                                 "status": "not_found",
-                                "message": f"No bucket policy found for {bucket_name} on {account_id}",
+                                "account_id": account_id,
+                                "message": f"No queue policy found for {queue_name} on {account_id}",
                             }
                         ),
                     }
-                else:
-                    logger.error(f"Error reading bucket policy: {e}")
-                    return {
-                        "statusCode": 500,
-                        "body": json.dumps(
-                            {
-                                "status": "error",
-                                "message": f"Error reading bucket policy: {str(e)}",
-                            }
-                        ),
-                    }
+            except Exception as e:
+                logger.error(f"Error reading queue policy: {e}")
+                return {
+                    "statusCode": 500,
+                    "body": json.dumps(
+                        {
+                            "status": "error",
+                            "message": f"Error reading queue policy: {str(e)}",
+                        }
+                    ),
+                }
 
-        # POST method: unlock (delete) the bucket policy
-        # Check if bucket policy exists
+        # POST method: unlock (delete) the queue policy
+        # Check if queue policy exists
         try:
-            response = s3.get_bucket_policy(Bucket=bucket_name)
-            logger.info("Bucket policy found", extra={"policy": response["Policy"]})
-            bucket_policy_exist = True
-        except botocore.exceptions.ClientError as e:
-            error_code = e.response.get("Error", {}).get("Code")
-            if error_code == "NoSuchBucketPolicy":
-                logger.info("Bucket policy does not exist")
-                bucket_policy_exist = False
-            else:
-                logger.error(f"Error checking bucket policy: {e}")
-                raise
+            attrs = sqs.get_queue_attributes(
+                QueueUrl=queue_url, AttributeNames=["Policy"]
+            )
+            policy_str = attrs.get("Attributes", {}).get("Policy")
+            queue_policy_exist = bool(policy_str)
+        except Exception as e:
+            logger.error(f"Error checking queue policy: {e}")
+            raise
 
-        if bucket_policy_exist:
+        if queue_policy_exist:
             try:
-                s3.delete_bucket_policy(Bucket=bucket_name)
-                logger.info("Bucket policy deleted successfully")
+                sqs.set_queue_attributes(QueueUrl=queue_url, Attributes={"Policy": ""})
+                logger.info("Queue policy deleted successfully")
                 return {
                     "statusCode": 200,
                     "body": json.dumps(
                         {
                             "status": "unlocked",
                             "account_id": account_id,
-                            "resource_name": bucket_name,
-                            "message": f"Bucket policy deleted for {bucket_name} on {account_id}",
+                            "resource_name": queue_name,
+                            "message": f"Queue policy deleted for {queue_name} on {account_id}",
                         }
                     ),
                 }
             except Exception as e:
-                logger.error(f"Failed to delete bucket policy: {e}")
+                logger.error(f"Failed to delete queue policy: {e}")
                 return {
                     "statusCode": 500,
                     "body": json.dumps(
                         {
                             "status": "error",
-                            "message": f"Failed to delete bucket policy: {str(e)}",
+                            "account_id": account_id,
+                            "message": f"Failed to delete queue policy: {str(e)}",
                         }
                     ),
                 }
@@ -187,8 +204,7 @@ def lambda_handler(event, context):
                     {
                         "status": "not_locked",
                         "account_id": account_id,
-                        "resource_name": bucket_name,
-                        "message": f"No bucket policy found for {bucket_name} on {account_id}",
+                        "message": f"No queue policy found for {queue_name} on {account_id}",
                     }
                 ),
             }
@@ -208,5 +224,5 @@ def lambda_handler(event, context):
 if __name__ == "__main__":
     # Example event for local testing
     os.environ["LOCAL_TEST"] = "true"
-    test_event = {"path": "/unlock-s3-bucket/068167017169/068167017169-test-bucket"}
+    test_event = {"path": "/unlock-sqs-queue/068167017169/test-queue"}
     lambda_handler(test_event, None)

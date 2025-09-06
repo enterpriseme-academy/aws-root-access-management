@@ -65,35 +65,32 @@ def create_root_login_profile(account_id):
 
 def lambda_handler(event, context):
     logger.info("Starting creating root login profile", extra={"event": event})
-    path_params = event.get("pathParameters", {})
-    account_number = path_params.get("account_number")
+    path_param = event.get("path", {})
+    try:
+        account_id = path_param.split("/")[2]
+    except (AttributeError, IndexError):
+        account_id = None
 
-    cors_headers = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-    }
-
-    if not account_number:
-        logger.error("Missing account_number in path parameters")
+    if not account_id:
+        logger.error("Missing account_id in path parameters")
         return {
             "statusCode": 400,
-            "headers": cors_headers,
             "body": json.dumps(
                 {
                     "status": "error",
-                    "message": "Missing account_number in path parameters",
+                    "account_id": None,
+                    "message": "Missing account_id in path parameters",
                 }
             ),
         }
     try:
-        create_root_login_profile(account_number)
+        create_root_login_profile(account_id)
         return {
             "statusCode": 200,
-            "headers": cors_headers,
             "body": json.dumps(
                 {
                     "status": "success",
+                    "account_id": account_id,
                     "message": "Root login profile created.",
                 }
             ),
@@ -102,7 +99,6 @@ def lambda_handler(event, context):
         logger.error(f"Error creating root login profile: {e}")
         return {
             "statusCode": 500,
-            "headers": cors_headers,
             "body": json.dumps(
                 {
                     "status": "error",
@@ -115,6 +111,6 @@ def lambda_handler(event, context):
 if __name__ == "__main__":
     os.environ["LOCAL_TEST"] = "true"
     test_event = {
-        "pathParameters": {"account_number": "535294143734"},
+        "path": "/create-root-login-profile/535294143734",
     }
     lambda_handler(test_event, None)
