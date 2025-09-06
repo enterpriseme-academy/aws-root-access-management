@@ -1,3 +1,12 @@
+import boto3
+import os
+import json
+from aws_lambda_powertools import Logger
+
+logger = Logger()
+
+TARGET_POLICY_NAME = "IAMDeleteRootUserCredentials"
+PROFILE_NAME = "sandbox"  # Used only for local testing
 DOMAIN = os.environ.get("DOMAIN", "*")
 HEADERS = {
     "Access-Control-Allow-Origin": DOMAIN,
@@ -15,17 +24,6 @@ def alb_response(status_code, body_dict, status_description=None, headers=None):
         "headers": headers or HEADERS,
         "body": json.dumps(body_dict),
     }
-
-
-import boto3
-import os
-import json
-from aws_lambda_powertools import Logger
-
-logger = Logger()
-
-TARGET_POLICY_NAME = "IAMDeleteRootUserCredentials"
-PROFILE_NAME = "sandbox"  # Used only for local testing
 
 
 def get_boto3_session():
