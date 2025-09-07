@@ -1,0 +1,8 @@
+version: '3.8'
+services:
+  aws-root-access-management:
+    build: .
+    container_name: aws-root-access-management
+    ports:
+      - "8080:80"
+    restart: unless-stopped

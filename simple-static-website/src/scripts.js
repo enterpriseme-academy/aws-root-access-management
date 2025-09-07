@@ -1,3 +1,18 @@
+let apiBaseUrl = "";
+
+// Load config.json to get API base URL
+fetch("src/config.json")
+  .then((response) => response.json())
+  .then((config) => {
+    apiBaseUrl = config.apiBaseUrl.replace(/\/$/, "");
+  })
+  .catch((error) => {
+    console.error(
+      "Failed to load config.json, using default API base URL.",
+      error
+    );
+    apiBaseUrl = "https://ram.enterpriseme.academy";
+  });
 function syntaxHighlight(json) {
   if (typeof json != "string") {
     json = JSON.stringify(json, undefined, 2);
@@ -30,12 +45,9 @@ function getBucketPolicy() {
   showSpinner();
   const accountNumber = document.getElementById("s3accountNumber").value;
   const bucketName = document.getElementById("bucketName").value;
-  fetch(
-    `https://ram.enterpriseme.academy/unlock-s3-bucket/${accountNumber}/${bucketName}`,
-    {
-      method: "GET",
-    }
-  )
+  fetch(`${apiBaseUrl}/unlock-s3-bucket/${accountNumber}/${bucketName}`, {
+    method: "GET",
+  })
     .then((response) => response.json())
     .then((data) => {
       const output = document
@@ -62,12 +74,9 @@ function deleteBucketPolicy() {
   showSpinner();
   const accountNumber = document.getElementById("s3accountNumber").value;
   const bucketName = document.getElementById("bucketName").value;
-  fetch(
-    `https://ram.enterpriseme.academy/unlock-s3-bucket/${accountNumber}/${bucketName}`,
-    {
-      method: "POST",
-    }
-  )
+  fetch(`${apiBaseUrl}/unlock-s3-bucket/${accountNumber}/${bucketName}`, {
+    method: "POST",
+  })
     .then((response) => {
       if (response.ok) {
         alert("Bucket policy deleted successfully.");
@@ -87,27 +96,27 @@ function deleteBucketPolicy() {
 function deleteRootAccount() {
   showSpinner();
   const accountNumber = document.getElementById("accountNumber").value;
-  fetch(
-    `https://ram.enterpriseme.academy/delete-root-login-profile/${accountNumber}`,
-    {
-      method: "POST",
-    }
-  )
+  fetch(`${apiBaseUrl}/delete-root-login-profile/${accountNumber}`, {
+    method: "POST",
+  })
     .then((response) => response.json())
     .then((data) => {
       const output = document.getElementById("message").querySelector("code");
       if (data.status === "success") {
-        output.textContent =
-          data.message || "Root account deleted and MFA deactivated.";
+        output.innerHTML = syntaxHighlight(
+          data.message || "Root account deleted and MFA deactivated."
+        );
       } else {
-        output.textContent = data.message || "Failed to delete root account.";
+        output.innerHTML = syntaxHighlight(
+          data.message || "Failed to delete root account."
+        );
       }
       hideSpinner();
     })
     .catch((error) => {
       console.error("Error deleting root account:", error);
       const output = document.getElementById("message").querySelector("code");
-      output.textContent = "Error deleting root account.";
+      output.innerHTML = syntaxHighlight("Error deleting root account.");
       hideSpinner();
     });
 }
@@ -115,26 +124,27 @@ function deleteRootAccount() {
 function createRootAccount() {
   showSpinner();
   const accountNumber = document.getElementById("accountNumber").value;
-  fetch(
-    `https://ram.enterpriseme.academy/create-root-login-profile/${accountNumber}`,
-    {
-      method: "POST",
-    }
-  )
+  fetch(`${apiBaseUrl}/create-root-login-profile/${accountNumber}`, {
+    method: "POST",
+  })
     .then((response) => response.json())
     .then((data) => {
       const output = document.getElementById("message").querySelector("code");
       if (data.status === "success") {
-        output.textContent = data.message || "Root account created.";
+        output.innerHTML = syntaxHighlight(
+          data.message || "Root account created."
+        );
       } else {
-        output.textContent = data.message || "Failed to create root account.";
+        output.innerHTML = syntaxHighlight(
+          data.message || "Failed to create root account."
+        );
       }
       hideSpinner();
     })
     .catch((error) => {
       console.error("Error creating root account:", error);
       const output = document.getElementById("message").querySelector("code");
-      output.textContent = "Error creating root account.";
+      output.innerHTML = syntaxHighlight("Error creating root account.");
       hideSpinner();
     });
 }
@@ -143,12 +153,9 @@ function getSqsPolicy() {
   showSpinner();
   const accountNumber = document.getElementById("sqsAccountNumber").value;
   const queueName = document.getElementById("queueName").value;
-  fetch(
-    `https://ram.enterpriseme.academy/unlock-sqs-queue/${accountNumber}/${queueName}`,
-    {
-      method: "GET",
-    }
-  )
+  fetch(`${apiBaseUrl}/unlock-sqs-queue/${accountNumber}/${queueName}`, {
+    method: "GET",
+  })
     .then((response) => response.json())
     .then((data) => {
       const output = document
@@ -175,12 +182,9 @@ function deleteSqsPolicy() {
   showSpinner();
   const accountNumber = document.getElementById("sqsAccountNumber").value;
   const queueName = document.getElementById("queueName").value;
-  fetch(
-    `https://ram.enterpriseme.academy/unlock-sqs-queue/${accountNumber}/${queueName}`,
-    {
-      method: "POST",
-    }
-  )
+  fetch(`${apiBaseUrl}/unlock-sqs-queue/${accountNumber}/${queueName}`, {
+    method: "POST",
+  })
     .then((response) => {
       if (response.ok) {
         alert("Queue policy deleted successfully.");
