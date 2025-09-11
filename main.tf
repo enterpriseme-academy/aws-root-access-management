@@ -5,11 +5,13 @@ resource "aws_lb" "main" {
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
   subnets            = module.vpc.public_subnets
+  tags               = var.tags
 }
 
 resource "aws_lb_target_group" "unlock_sqs_queue" {
   name        = "unlock-sqs-queue-tg"
   target_type = "lambda"
+  tags        = var.tags
 }
 
 resource "aws_lb_target_group_attachment" "unlock_sqs_queue" {
@@ -21,6 +23,7 @@ resource "aws_lb_target_group_attachment" "unlock_sqs_queue" {
 resource "aws_lb_target_group" "unlock_s3_bucket" {
   name        = "unlock-s3-bucket-tg"
   target_type = "lambda"
+  tags        = var.tags
 }
 
 resource "aws_lb_target_group_attachment" "unlock_s3_bucket" {
@@ -32,6 +35,7 @@ resource "aws_lb_target_group_attachment" "unlock_s3_bucket" {
 resource "aws_lb_target_group" "delete_root_login_profile" {
   name        = "delete-root-login-profile-tg"
   target_type = "lambda"
+  tags        = var.tags
 }
 
 resource "aws_lb_target_group_attachment" "delete_root_login_profile" {
@@ -43,6 +47,7 @@ resource "aws_lb_target_group_attachment" "delete_root_login_profile" {
 resource "aws_lb_target_group" "create_root_login_profile" {
   name        = "create-root-login-profile-tg"
   target_type = "lambda"
+  tags        = var.tags
 }
 
 resource "aws_lb_target_group_attachment" "create_root_login_profile" {
@@ -168,6 +173,7 @@ module "acm" {
   create_route53_records    = true
   subject_alternative_names = []
   wait_for_validation       = true
+  tags                      = var.tags
 }
 
 # Route 53 record for ALB
@@ -198,6 +204,10 @@ module "unlock_s3_bucket_lambda" {
     "arn:aws:lambda:${data.aws_region.current.region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-python312-x86_64:19"
   ]
 
+  vpc_subnet_ids         = module.vpc.private_subnets
+  vpc_security_group_ids = [aws_security_group.vpc_endpoint_sg.id]
+  attach_network_policy  = true
+
   environment_variables = {
     POWERTOOLS_SERVICE_NAME          = "S3UnlockBucketPolicy"
     POWERTOOLS_METRICS_FUNCTION_NAME = "S3UnlockBucketPolicy"
@@ -217,6 +227,7 @@ module "unlock_s3_bucket_lambda" {
       ]
     }
   ]
+  tags = var.tags
 }
 
 module "delete_root_login_profile_lambda" {
@@ -234,6 +245,10 @@ module "delete_root_login_profile_lambda" {
   layers = [
     "arn:aws:lambda:${data.aws_region.current.region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-python312-x86_64:19"
   ]
+
+  vpc_subnet_ids         = module.vpc.private_subnets
+  vpc_security_group_ids = [aws_security_group.vpc_endpoint_sg.id]
+  attach_network_policy  = true
 
   environment_variables = {
     POWERTOOLS_SERVICE_NAME          = "IAMDeleteRootUserCredentials"
@@ -254,6 +269,7 @@ module "delete_root_login_profile_lambda" {
       ]
     }
   ]
+  tags = var.tags
 }
 
 module "create_root_login_profile_lambda" {
@@ -271,6 +287,9 @@ module "create_root_login_profile_lambda" {
   layers = [
     "arn:aws:lambda:${data.aws_region.current.region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-python312-x86_64:19"
   ]
+  vpc_subnet_ids         = module.vpc.private_subnets
+  vpc_security_group_ids = [aws_security_group.vpc_endpoint_sg.id]
+  attach_network_policy  = true
 
   environment_variables = {
     POWERTOOLS_SERVICE_NAME          = "IAMCreateRootUserPassword"
@@ -291,6 +310,7 @@ module "create_root_login_profile_lambda" {
       ]
     }
   ]
+  tags = var.tags
 }
 
 
@@ -309,6 +329,10 @@ module "unlock_sqs_queue_lambda" {
   layers = [
     "arn:aws:lambda:${data.aws_region.current.region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-python312-x86_64:19"
   ]
+
+  vpc_subnet_ids         = module.vpc.private_subnets
+  vpc_security_group_ids = [aws_security_group.vpc_endpoint_sg.id]
+  attach_network_policy  = true
 
   environment_variables = {
     POWERTOOLS_SERVICE_NAME          = "SQSUnlockQueuePolicy"
@@ -329,4 +353,5 @@ module "unlock_sqs_queue_lambda" {
       ]
     }
   ]
+  tags = var.tags
 }

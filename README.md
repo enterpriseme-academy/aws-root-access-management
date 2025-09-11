@@ -12,7 +12,21 @@ This project provides a way for managing AWS root account credentials, S3 bucket
 
 
 ## Architecture
+  
+All Lambda functions are deployed inside the VPC, specifically in private subnets. This enhances security by isolating Lambda functions from direct internet access.
 
+**VPC Endpoints:**
+To allow Lambda functions to securely access AWS services without traversing the public internet, the following VPC endpoints have been created:
+
+- **Lambda** (`com.amazonaws.us-east-1.lambda`)
+- **IAM** (`com.amazonaws.iam`)
+- **STS** (`com.amazonaws.us-east-1.sts`)
+
+These are interface endpoints deployed in the same VPC and private subnets as the Lambda functions. This setup ensures all AWS API calls from Lambda to these services remain within the AWS network.
+
+**Note:**
+- Lambda functions no longer require a NAT Gateway or Internet Gateway for access to these AWS services.
+- Ensure security groups and subnet routing allow communication between Lambda and the VPC endpoints.
 - **Lambda Functions**:
   - `unlock_s3_bucket_lambda`: Handles GET (view policy) and POST (delete policy) for S3 buckets.
   - `unlock_sqs_queue_lambda`: Handles GET (view policy) and POST (delete policy) for SQS queues.
