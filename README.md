@@ -66,6 +66,9 @@ A simple static website is included in `simple-static-website/` for interacting 
 
 - Lambda functions use least-privilege IAM roles.
 - CloudWatch logs are enabled for auditing.
+- Dedicated Service Control Policy which denies the usage of the long term credentials of a root user in an AWS Organizations member account. The policy does not deny AssumeRoot sessions from taking the actions allowed by an AssumeRoot session. [Reference](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-assumedroot)
+
+
 
 
 ## Troubleshooting
