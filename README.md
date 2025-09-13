@@ -21,7 +21,9 @@ To allow Lambda functions to securely access AWS services without traversing the
 - **Lambda** (`com.amazonaws.us-east-1.lambda`)
 - **IAM** (`com.amazonaws.iam`)
 - **STS** (`com.amazonaws.us-east-1.sts`)
-
+- **SQS** (`com.amazonaws.us-east-1.sqs`)
+- **S3** (`com.amazonaws.us-east-1.s3`)
+  
 These are interface endpoints deployed in the same VPC and private subnets as the Lambda functions. This setup ensures all AWS API calls from Lambda to these services remain within the AWS network.
 
 **Note:**

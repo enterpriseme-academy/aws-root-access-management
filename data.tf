@@ -62,3 +62,41 @@ data "aws_iam_policy_document" "sts_endpoint_policy" {
     }
   }
 }
+
+data "aws_iam_policy_document" "sqs_endpoint_policy" {
+  statement {
+    effect    = "Allow"
+    actions   = ["sqs:*"]
+    resources = ["*"]
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:PrincipalOrgID"
+      values   = [var.org]
+    }
+  }
+}
+
+data "aws_iam_policy_document" "s3_endpoint_policy" {
+  statement {
+    effect    = "Allow"
+    actions   = ["s3:*"]
+    resources = ["*"]
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:PrincipalOrgID"
+      values   = [var.org]
+    }
+  }
+}

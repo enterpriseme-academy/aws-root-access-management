@@ -69,10 +69,8 @@ module "vpc_endpoint" {
       service_type        = "Gateway"
       private_dns_enabled = true
       route_table_ids     = module.vpc.private_route_table_ids
-      dns_options = {
-        private_dns_only_for_inbound_resolver_endpoint = false
-      }
-      tags = merge(var.tags, { Name = "s3-vpc-endpoint" })
+      policy              = data.aws_iam_policy_document.s3_endpoint_policy.json
+      tags                = merge(var.tags, { Name = "s3-vpc-endpoint" })
     }
   }
 }
