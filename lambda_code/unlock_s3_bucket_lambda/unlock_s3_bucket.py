@@ -1,8 +1,8 @@
+import re
 import boto3
 import os
 import botocore
 import json
-
 from aws_lambda_powertools import Logger
 
 logger = Logger()
@@ -16,6 +16,7 @@ HEADERS = {
     "Access-Control-Allow-Headers": "Content-Type",
     "Content-Type": "application/json",
 }
+PROTECTED_BUCKETS = os.environ.get("PROTECTED_BUCKETS", "").split(",")
 
 
 def alb_response(status_code, body_dict, status_description=None, headers=None):
@@ -86,6 +87,23 @@ def lambda_handler(event, context):
                 "message": "Missing bucket_name in path parameters",
             },
             "400 Bad Request",
+        )
+
+    # Protect buckets in PROTECTED_BUCKETS or matching <12-digit-accountid>-tf-state
+    tf_state_pattern = re.compile(r"^\d{12}-tf-state$")
+    if bucket_name in PROTECTED_BUCKETS or tf_state_pattern.match(bucket_name):
+        logger.error(
+            f"Bucket {bucket_name} is protected (either in PROTECTED_BUCKETS or matches <accountid>-tf-state pattern)"
+        )
+        return alb_response(
+            403,
+            {
+                "status": "error",
+                "account_id": account_id,
+                "bucket_name": bucket_name,
+                "message": f"Bucket {bucket_name} is protected",
+            },
+            "403 Forbidden",
         )
 
     http_method = event.get("httpMethod", "POST")
