@@ -48,15 +48,33 @@ module "vpc_endpoint" {
       private_dns_enabled = true
       subnet_ids          = module.vpc.private_subnets
       policy              = data.aws_iam_policy_document.lambda_endpoint_policy.json
+      tags                = merge(var.tags, { Name = "lambda-vpc-endpoint" })
     }
     sts = {
       service             = "sts"
       private_dns_enabled = true
       subnet_ids          = module.vpc.private_subnets
       policy              = data.aws_iam_policy_document.sts_endpoint_policy.json
+      tags                = merge(var.tags, { Name = "sts-vpc-endpoint" })
+    }
+    sqs = {
+      service             = "sqs"
+      private_dns_enabled = true
+      subnet_ids          = module.vpc.private_subnets
+      policy              = data.aws_iam_policy_document.sqs_endpoint_policy.json
+      tags                = merge(var.tags, { Name = "sqs-vpc-endpoint" })
+    }
+    s3 = {
+      service             = "s3"
+      service_type        = "Gateway"
+      private_dns_enabled = true
+      route_table_ids     = module.vpc.private_route_table_ids
+      dns_options = {
+        private_dns_only_for_inbound_resolver_endpoint = false
+      }
+      tags = merge(var.tags, { Name = "s3-vpc-endpoint" })
     }
   }
-  tags = var.tags
 }
 
 resource "aws_security_group" "vpc_endpoint_sg" {
@@ -93,7 +111,7 @@ resource "aws_vpc_endpoint" "iam" {
   tags = merge(
     var.tags,
     {
-      Name = "vpc-endpoint-iam"
+      Name = "iam-vpc-endpoint"
     }
   )
 }
