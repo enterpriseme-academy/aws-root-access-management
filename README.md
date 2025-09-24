@@ -1,43 +1,66 @@
 # AWS Root Access Management API
 
-This project provides a way for managing AWS root account credentials, S3 bucket policies, and SQS queue policies using Lambda functions behind an Application Load Balancer (ALB).
+This project provides an API for performing specific, tightly‑scoped privileged root tasks (using short‑term `sts:AssumeRoot` sessions) and for recovering access to locked Amazon S3 buckets or Amazon SQS queues whose resource policies block all principals. The functionality is exposed through AWS Lambda functions integrated with an internet‑facing Application Load Balancer (ALB).
 
 
 ## Features
 
-- **Unlock S3 Bucket**: Delete or view S3 bucket policy.
-- **Unlock SQS Queue**: Delete or view SQS queue policy.
-- **Create Root Login Profile**: Create a login profile for the root user.
-- **Delete Root Login Profile**: Delete the root login profile and deactivate MFA devices.
+- **Unlock S3 Bucket**: View (GET) or delete (POST) a bucket policy that unintentionally denies all access.
+- **Unlock SQS Queue**: View (GET) or delete (POST) an SQS queue policy that unintentionally denies all access.
+- **Enable Root Password Creation**: Initiate the privileged task that (re)creates a root user password (maps to AWS IAM privileged task policy `IAMCreateRootUserPassword`).
+- **Delete Root Credentials**: Remove root user password / access keys and deactivate MFA devices (maps to privileged task policy `IAMDeleteRootUserCredentials`).
 
 
 ## Architecture
-  
-All Lambda functions are deployed inside the VPC, specifically in private subnets. This enhances security by isolating Lambda functions from direct internet access.
 
-**VPC Endpoints:**
-To allow Lambda functions to securely access AWS services without traversing the public internet, the following VPC endpoints have been created:
+All Lambda functions are deployed inside a dedicated VPC, in private subnets, to prevent direct inbound access and to force traffic through controlled integration points. An internet‑facing ALB provides HTTPS endpoints that invoke Lambda target groups (Lambda as ALB targets) without exposing the functions directly.
 
-- **Lambda** (`com.amazonaws.us-east-1.lambda`)
-- **IAM** (`com.amazonaws.iam`)
-- **STS** (`com.amazonaws.us-east-1.sts`)
-- **SQS** (`com.amazonaws.us-east-1.sqs`)
-- **S3** (`com.amazonaws.us-east-1.s3`)
-  
-These are interface endpoints deployed in the same VPC and private subnets as the Lambda functions. This setup ensures all AWS API calls from Lambda to these services remain within the AWS network.
+### Multi‑Region Considerations
+Unlock operations may need to target S3 buckets or SQS queues residing in multiple AWS Regions. The current baseline deploys Lambda functions only in the primary Region (us‑east‑1). Cross‑Region operations are performed via `sts:AssumeRoot` into member accounts and region‑specific service API calls. (If ultra‑low latency or Region isolation is required, you can extend by deploying a regional copy of this stack per Region behind a global DNS / latency policy.)
 
-**Note:**
-- Lambda functions no longer require a NAT Gateway or Internet Gateway for access to these AWS services.
-- Ensure security groups and subnet routing allow communication between Lambda and the VPC endpoints.
-- **Lambda Functions**:
-  - `unlock_s3_bucket_lambda`: Handles GET (view policy) and POST (delete policy) for S3 buckets.
-  - `unlock_sqs_queue_lambda`: Handles GET (view policy) and POST (delete policy) for SQS queues.
-  - `create_root_login_profile_lambda`: Creates root login profile.
-  - `delete_root_login_profile_lambda`: Deletes root login profile and deactivates MFA.
+### VPC Endpoints (Current)
+Interface or gateway VPC endpoints eliminate the need for public internet egress for core AWS API calls:
 
-- **Application Load Balancer (ALB)**:
-  - All Lambda functions are exposed via an internet-facing ALB.
-  - Custom domain: `ram.enterpriseme.academy` (HTTPS supported).
+- Lambda (`com.amazonaws.us-east-1.lambda`)
+- IAM (global) (`com.amazonaws.iam`)
+- STS (`com.amazonaws.us-east-1.sts`)
+- SQS (`com.amazonaws.us-east-1.sqs`)
+- S3 (Gateway) (`com.amazonaws.us-east-1.s3`)
+- CloudWatch Logs (`com.amazonaws.us-east-1.logs`) – for log delivery without public routing.
+
+### Supported (Target) Regions
+- N. Virginia – us-east-1 (primary stack with Lambda functions)
+- Ohio – us-east-2
+- Ireland – eu-west-1
+- London – eu-west-2
+- Singapore – ap-southeast-1
+- Jakarta – ap-southeast-3
+- Mumbai – ap-south-1
+- Hong Kong – ap-east-1
+- Zurich – eu-central-2
+
+### Components
+**Lambda Functions**
+- `unlock_s3_bucket_lambda`: GET (view policy), POST (delete policy)
+- `unlock_sqs_queue_lambda`: GET (view policy), POST (delete policy)
+- `create_root_login_profile_lambda`: Initiates privileged task to create/reset root password.
+- `delete_root_login_profile_lambda`: Deletes root password/keys & deactivates MFA.
+
+**Application Load Balancer**
+- ALB terminating TLS (ACM certificate for `ram.enterpriseme.academy`).
+- Listener rules route based on path prefixes to Lambda target groups.
+
+### Security Notes
+- Privileged actions are constrained to short‑lived `sts:AssumeRoot` sessions; no long‑term root credentials are created or stored.
+- Implement AWS WAF (not yet included) on the ALB if exposed broadly to external users.
+- Consider adding an IP allow list or authentication (e.g., signed headers, JWT at an API Gateway front) if usage should be restricted. ALB today provides unauthenticated public endpoints.
+- Service Control Policy enforces no long‑term root credential usage in member accounts while allowing privileged tasks (referenced below).
+- Ensure least‑privilege execution roles restrict actions only to required privileged task policies plus logging.
+
+### Future Enhancements (Optional)
+- Replace ALB + Lambda integration with Amazon API Gateway for built‑in auth, usage plans, throttling, and native Lambda proxy integration.
+- Multi‑account deployment automation (e.g., via StackSets or delegated CI) for regional copies.
+- Structured audit logging & tracing (Powertools + X-Ray) with correlation IDs.
 
 ## Usage
 
@@ -64,9 +87,9 @@ You can invoke the Lambda functions using the following endpoints:
 - **Unlock SQS Queue**
   - `GET  /unlock-sqs-queue/{accountNumber}/{queueName}` — View SQS queue policy
   - `POST /unlock-sqs-queue/{accountNumber}/{queueName}` — Delete SQS queue policy
-- **Delete Root Login Profile**
+- **Delete Root Credentials**
   - `POST /delete-root-login-profile/{accountNumber}`
-- **Create Root Login Profile**
+- **Create/Reset Root Password**
   - `POST /create-root-login-profile/{accountNumber}`
 
 All endpoints are available at:
@@ -80,9 +103,10 @@ A simple static website is included in `simple-static-website/` for interacting 
 
 ## Security
 
-- Lambda functions use least-privilege IAM roles.
-- CloudWatch logs are enabled for auditing.
-- Dedicated Service Control Policy which denies the usage of the long term credentials of a root user in an AWS Organizations member account. The policy does not deny AssumeRoot sessions from taking the actions allowed by an AssumeRoot session. [Reference](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-assumedroot)
+- Lambda functions use least‑privilege IAM roles (recommend auditing with IAM Access Analyzer & CloudTrail).
+- CloudWatch logs are enabled for auditing (add Logs VPC endpoint for stricter egress control).
+- Dedicated Service Control Policy denies use of long‑term root credentials while allowing `AssumeRoot` privileged sessions. See AWS docs on the `aws:CalledVia` / `aws:PrincipalArn` conditions and assumed-root session keys. [Reference](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-assumedroot)
+- Consider adding: WAF ACL, centralized alerting on privileged task invocations, and guardrail SCPs that scope which accounts can be targeted.
 
 
 
