@@ -11,20 +11,10 @@ This project provides functionality for performing specific, tightly‑scoped pr
 
 ## Architecture
 
-All Lambda functions are deployed inside a dedicated VPC, in private subnets, to prevent direct inbound access and to force traffic through controlled integration points. The Lambda functions are invoked directly by the `compliance-dashboard` IAM role on a designated remote account via cross-account Lambda invocation permissions.
+Lambda functions are deployed without a VPC, running in the AWS-managed network environment with internet access to AWS service endpoints. The Lambda functions are invoked directly by the `compliance-dashboard` IAM role on a designated remote account via cross-account Lambda invocation permissions.
 
 ### Multi‑Region Considerations
 Unlock operations may need to target S3 buckets or SQS queues residing in multiple AWS Regions. The current baseline deploys Lambda functions only in the primary Region (us‑east‑1). Cross‑Region operations are performed via `sts:AssumeRoot` into member accounts and region‑specific service API calls. (If ultra‑low latency or Region isolation is required, you can extend by deploying a regional copy of this stack per Region.)
-
-### VPC Endpoints (Current)
-Interface or gateway VPC endpoints eliminate the need for public internet egress for core AWS API calls:
-
-- Lambda (`com.amazonaws.us-east-1.lambda`)
-- IAM (global) (`com.amazonaws.iam`)
-- STS (`com.amazonaws.us-east-1.sts`)
-- SQS (`com.amazonaws.us-east-1.sqs`)
-- S3 (Gateway) (`com.amazonaws.us-east-1.s3`)
-- CloudWatch Logs (`com.amazonaws.us-east-1.logs`) – for log delivery without public routing.
 
 ### Supported (Target) Regions
 - N. Virginia – us-east-1 (primary stack with Lambda functions)
@@ -85,7 +75,7 @@ The Lambda functions accept a JSON event payload and are invoked directly via th
 ## Security
 
 - Lambda functions use least‑privilege IAM roles (recommend auditing with IAM Access Analyzer & CloudTrail).
-- CloudWatch logs are enabled for auditing (add Logs VPC endpoint for stricter egress control).
+- CloudWatch logs are enabled for auditing.
 - Dedicated Service Control Policy denies use of long‑term root credentials while allowing `AssumeRoot` privileged sessions. See AWS docs on the `aws:CalledVia` / `aws:PrincipalArn` conditions and assumed-root session keys. [Reference](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-assumedroot)
 - Consider adding: centralized alerting on privileged task invocations, and guardrail SCPs that scope which accounts can be targeted.
 
