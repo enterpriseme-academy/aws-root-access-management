@@ -46,6 +46,12 @@ resource "aws_iam_role_policy" "custom" {
   policy = data.aws_iam_policy_document.custom[0].json
 }
 
+resource "aws_cloudwatch_log_group" "lambda" {
+  name              = "/aws/lambda/${var.function_name}"
+  retention_in_days = var.log_retention_days > 0 ? var.log_retention_days : null
+  tags              = var.tags
+}
+
 resource "aws_lambda_function" "this" {
   filename         = data.archive_file.lambda_zip.output_path
   function_name    = var.function_name
@@ -57,6 +63,8 @@ resource "aws_lambda_function" "this" {
   timeout          = var.timeout
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
   layers           = var.layers
+
+  depends_on = [aws_cloudwatch_log_group.lambda]
 
   dynamic "environment" {
     for_each = length(var.environment_variables) > 0 ? [1] : []

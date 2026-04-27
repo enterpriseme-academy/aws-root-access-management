@@ -58,6 +58,12 @@ variable "policy_statements" {
   default = []
 }
 
+variable "log_retention_days" {
+  description = "Number of days to retain Lambda function logs in CloudWatch. Set to 0 for indefinite retention."
+  type        = number
+  default     = 14
+}
+
 variable "tags" {
   description = "Tags to apply to all resources created by this module"
   type        = map(string)
