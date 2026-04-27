@@ -32,29 +32,6 @@ resource "aws_lb_target_group_attachment" "unlock_s3_bucket" {
   depends_on       = [aws_lambda_permission.alb_unlock_s3_bucket]
 }
 
-resource "aws_lb_target_group" "delete_root_login_profile" {
-  name        = "delete-root-login-profile-tg"
-  target_type = "lambda"
-  tags        = var.tags
-}
-
-resource "aws_lb_target_group_attachment" "delete_root_login_profile" {
-  target_group_arn = aws_lb_target_group.delete_root_login_profile.arn
-  target_id        = module.delete_root_login_profile_lambda.lambda_function_arn
-  depends_on       = [aws_lambda_permission.alb_delete_root_login_profile]
-}
-
-resource "aws_lb_target_group" "create_root_login_profile" {
-  name        = "create-root-login-profile-tg"
-  target_type = "lambda"
-  tags        = var.tags
-}
-
-resource "aws_lb_target_group_attachment" "create_root_login_profile" {
-  target_group_arn = aws_lb_target_group.create_root_login_profile.arn
-  target_id        = module.create_root_login_profile_lambda.lambda_function_arn
-  depends_on       = [aws_lambda_permission.alb_create_root_login_profile]
-}
 
 # HTTPS listener using ACM module output
 resource "aws_lb_listener" "https" {
@@ -83,34 +60,6 @@ resource "aws_lb_listener_rule" "unlock_s3_bucket" {
   condition {
     path_pattern {
       values = ["/unlock-s3-bucket/*"]
-    }
-  }
-}
-
-resource "aws_lb_listener_rule" "delete_root_login_profile" {
-  listener_arn = aws_lb_listener.https.arn
-  priority     = 20
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.delete_root_login_profile.arn
-  }
-  condition {
-    path_pattern {
-      values = ["/delete-root-login-profile/*"]
-    }
-  }
-}
-
-resource "aws_lb_listener_rule" "create_root_login_profile" {
-  listener_arn = aws_lb_listener.https.arn
-  priority     = 30
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.create_root_login_profile.arn
-  }
-  condition {
-    path_pattern {
-      values = ["/create-root-login-profile/*"]
     }
   }
 }
@@ -144,22 +93,6 @@ resource "aws_lambda_permission" "alb_unlock_sqs_queue" {
   function_name = module.unlock_sqs_queue_lambda.lambda_function_name
   principal     = "elasticloadbalancing.amazonaws.com"
   source_arn    = aws_lb_target_group.unlock_sqs_queue.arn
-}
-
-resource "aws_lambda_permission" "alb_delete_root_login_profile" {
-  statement_id  = "AllowExecutionFromALB"
-  action        = "lambda:InvokeFunction"
-  function_name = module.delete_root_login_profile_lambda.lambda_function_name
-  principal     = "elasticloadbalancing.amazonaws.com"
-  source_arn    = aws_lb_target_group.delete_root_login_profile.arn
-}
-
-resource "aws_lambda_permission" "alb_create_root_login_profile" {
-  statement_id  = "AllowExecutionFromALB"
-  action        = "lambda:InvokeFunction"
-  function_name = module.create_root_login_profile_lambda.lambda_function_name
-  principal     = "elasticloadbalancing.amazonaws.com"
-  source_arn    = aws_lb_target_group.create_root_login_profile.arn
 }
 
 # ACM certificate for custom domain using module
@@ -229,90 +162,6 @@ module "unlock_s3_bucket_lambda" {
   ]
   tags = var.tags
 }
-
-module "delete_root_login_profile_lambda" {
-  source  = "terraform-aws-modules/lambda/aws"
-  version = "8.0.1"
-
-  function_name = "delete_root_login_profile"
-  description   = "Delete root login profile"
-  handler       = "delete_root_login_profile.lambda_handler"
-  runtime       = "python3.12"
-  publish       = true
-  timeout       = 30
-  source_path   = "./lambda_code/delete_root_login_profile_lambda"
-
-  layers = [
-    "arn:aws:lambda:${data.aws_region.current.region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-python312-x86_64:19"
-  ]
-
-  vpc_subnet_ids         = module.vpc.private_subnets
-  vpc_security_group_ids = [aws_security_group.vpc_endpoint_sg.id]
-  attach_network_policy  = true
-
-  environment_variables = {
-    POWERTOOLS_SERVICE_NAME          = "IAMDeleteRootUserCredentials"
-    POWERTOOLS_METRICS_FUNCTION_NAME = "IAMDeleteRootUserCredentials"
-    POWERTOOLS_LOG_LEVEL             = "INFO"
-    POWERTOOLS_METRICS_NAMESPACE     = "AWSRootAccessManagement"
-  }
-  create_role              = true
-  attach_policy_statements = true
-  policy_statements = [
-    {
-      effect = "Allow"
-      actions = [
-        "sts:AssumeRoot"
-      ]
-      resources = [
-        "*"
-      ]
-    }
-  ]
-  tags = var.tags
-}
-
-module "create_root_login_profile_lambda" {
-  source  = "terraform-aws-modules/lambda/aws"
-  version = "8.0.1"
-
-  function_name = "create_root_login_profile"
-  description   = "Create root login profile"
-  handler       = "create_root_login_profile.lambda_handler"
-  runtime       = "python3.12"
-  publish       = true
-  timeout       = 30
-  source_path   = "./lambda_code/create_root_login_profile_lambda"
-
-  layers = [
-    "arn:aws:lambda:${data.aws_region.current.region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-python312-x86_64:19"
-  ]
-  vpc_subnet_ids         = module.vpc.private_subnets
-  vpc_security_group_ids = [aws_security_group.vpc_endpoint_sg.id]
-  attach_network_policy  = true
-
-  environment_variables = {
-    POWERTOOLS_SERVICE_NAME          = "IAMCreateRootUserPassword"
-    POWERTOOLS_METRICS_FUNCTION_NAME = "IAMCreateRootUserPassword"
-    POWERTOOLS_LOG_LEVEL             = "INFO"
-    POWERTOOLS_METRICS_NAMESPACE     = "AWSRootAccessManagement"
-  }
-  create_role              = true
-  attach_policy_statements = true
-  policy_statements = [
-    {
-      effect = "Allow"
-      actions = [
-        "sts:AssumeRoot"
-      ]
-      resources = [
-        "*"
-      ]
-    }
-  ]
-  tags = var.tags
-}
-
 
 module "unlock_sqs_queue_lambda" {
   source  = "terraform-aws-modules/lambda/aws"

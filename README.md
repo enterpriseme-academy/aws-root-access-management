@@ -7,8 +7,6 @@ This project provides an API for performing specific, tightly‑scoped privilege
 
 - **Unlock S3 Bucket**: View (GET) or delete (POST) a bucket policy that unintentionally denies all access.
 - **Unlock SQS Queue**: View (GET) or delete (POST) an SQS queue policy that unintentionally denies all access.
-- **Enable Root Password Creation**: Initiate the privileged task that (re)creates a root user password (maps to AWS IAM privileged task policy `IAMCreateRootUserPassword`).
-- **Delete Root Credentials**: Remove root user password / access keys and deactivate MFA devices (maps to privileged task policy `IAMDeleteRootUserCredentials`).
 
 
 ## Architecture
@@ -43,8 +41,6 @@ Interface or gateway VPC endpoints eliminate the need for public internet egress
 **Lambda Functions**
 - `unlock_s3_bucket_lambda`: GET (view policy), POST (delete policy)
 - `unlock_sqs_queue_lambda`: GET (view policy), POST (delete policy)
-- `create_root_login_profile_lambda`: Initiates privileged task to create/reset root password.
-- `delete_root_login_profile_lambda`: Deletes root password/keys & deactivates MFA.
 
 **Application Load Balancer**
 - ALB terminating TLS (ACM certificate for `ram.enterpriseme.academy`).
@@ -87,10 +83,6 @@ You can invoke the Lambda functions using the following endpoints:
 - **Unlock SQS Queue**
   - `GET  /unlock-sqs-queue/{accountNumber}/{queueName}` — View SQS queue policy
   - `POST /unlock-sqs-queue/{accountNumber}/{queueName}` — Delete SQS queue policy
-- **Delete Root Credentials**
-  - `POST /delete-root-login-profile/{accountNumber}`
-- **Create/Reset Root Password**
-  - `POST /create-root-login-profile/{accountNumber}`
 
 All endpoints are available at:
 
