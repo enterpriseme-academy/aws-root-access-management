@@ -16,8 +16,7 @@ resource "aws_lambda_permission" "compliance_dashboard_unlock_sqs_queue" {
 }
 
 module "unlock_s3_bucket_lambda" {
-  source  = "terraform-aws-modules/lambda/aws"
-  version = "8.0.1"
+  source = "./modules/lambda"
 
   function_name = "unlock_s3_bucket"
   description   = "Unlock S3 bucket by deleting its policy"
@@ -25,7 +24,7 @@ module "unlock_s3_bucket_lambda" {
   runtime       = "python3.12"
   publish       = true
   timeout       = 30
-  source_path   = "./lambda_code/unlock_s3_bucket_lambda"
+  source_path   = "${path.module}/lambda_code/unlock_s3_bucket_lambda"
 
   layers = [
     "arn:aws:lambda:${data.aws_region.current.region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-python312-x86_64:19"
@@ -38,8 +37,6 @@ module "unlock_s3_bucket_lambda" {
     POWERTOOLS_METRICS_NAMESPACE     = "AWSRootAccessManagement"
     ENVIRONMENT                      = var.environment
   }
-  create_role              = true
-  attach_policy_statements = true
   policy_statements = [
     {
       effect = "Allow"
@@ -55,8 +52,7 @@ module "unlock_s3_bucket_lambda" {
 }
 
 module "unlock_sqs_queue_lambda" {
-  source  = "terraform-aws-modules/lambda/aws"
-  version = "8.0.1"
+  source = "./modules/lambda"
 
   function_name = "unlock_sqs_queue"
   description   = "Unlock SQS queue by deleting its policy"
@@ -64,7 +60,7 @@ module "unlock_sqs_queue_lambda" {
   runtime       = "python3.12"
   publish       = true
   timeout       = 30
-  source_path   = "./lambda_code/unlock_sqs_queue_lambda"
+  source_path   = "${path.module}/lambda_code/unlock_sqs_queue_lambda"
 
   layers = [
     "arn:aws:lambda:${data.aws_region.current.region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-python312-x86_64:19"
@@ -77,8 +73,6 @@ module "unlock_sqs_queue_lambda" {
     POWERTOOLS_METRICS_NAMESPACE     = "AWSRootAccessManagement"
     ENVIRONMENT                      = var.environment
   }
-  create_role              = true
-  attach_policy_statements = true
   policy_statements = [
     {
       effect = "Allow"
