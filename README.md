@@ -11,7 +11,7 @@ This project provides functionality for performing specific, tightly‑scoped pr
 
 ## Architecture
 
-Lambda functions are deployed without a VPC, using the default Lambda networking model. The Lambda functions are invoked directly by the `compliance-dashboard` IAM role on a designated remote account via cross-account Lambda invocation permissions.
+Lambda functions are deployed without a VPC, running in the AWS-managed network environment with internet access to AWS service endpoints. The Lambda functions are invoked directly by the `compliance-dashboard` IAM role on a designated remote account via cross-account Lambda invocation permissions.
 
 ### Multi‑Region Considerations
 Unlock operations may need to target S3 buckets or SQS queues residing in multiple AWS Regions. The current baseline deploys Lambda functions only in the primary Region (us‑east‑1). Cross‑Region operations are performed via `sts:AssumeRoot` into member accounts and region‑specific service API calls. (If ultra‑low latency or Region isolation is required, you can extend by deploying a regional copy of this stack per Region.)
