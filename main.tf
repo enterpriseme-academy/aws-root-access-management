@@ -31,10 +31,6 @@ module "unlock_s3_bucket_lambda" {
     "arn:aws:lambda:${data.aws_region.current.region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-python312-x86_64:19"
   ]
 
-  vpc_subnet_ids         = module.vpc.private_subnets
-  vpc_security_group_ids = [aws_security_group.vpc_endpoint_sg.id]
-  attach_network_policy  = true
-
   environment_variables = {
     POWERTOOLS_SERVICE_NAME          = "S3UnlockBucketPolicy"
     POWERTOOLS_METRICS_FUNCTION_NAME = "S3UnlockBucketPolicy"
@@ -73,10 +69,6 @@ module "unlock_sqs_queue_lambda" {
   layers = [
     "arn:aws:lambda:${data.aws_region.current.region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-python312-x86_64:19"
   ]
-
-  vpc_subnet_ids         = module.vpc.private_subnets
-  vpc_security_group_ids = [aws_security_group.vpc_endpoint_sg.id]
-  attach_network_policy  = true
 
   environment_variables = {
     POWERTOOLS_SERVICE_NAME          = "SQSUnlockQueuePolicy"
