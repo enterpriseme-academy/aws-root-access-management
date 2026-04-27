@@ -18,6 +18,9 @@ HEADERS = {
 }
 
 
+ENVIRONMENT = os.environ.get("ENVIRONMENT", "")
+
+
 def alb_response(status_code, body_dict, status_description=None, headers=None):
     return {
         "statusCode": status_code,
@@ -36,6 +39,59 @@ def get_boto3_session():
         return boto3.Session(profile_name=PROFILE_NAME)
     else:
         return boto3.Session()
+
+
+def handle_dry_run_sqs(account_id, queue_name, http_method):
+    """Simulate SQS queue responses for development dry-run mode."""
+    logger.info(
+        f"DRY RUN: Simulating SQS queue operation for {queue_name} in account {account_id}"
+    )
+    queue_exists = "present" in queue_name.lower()
+
+    if http_method == "GET":
+        if queue_exists:
+            return alb_response(
+                200,
+                {
+                    "status": "success",
+                    "account_id": account_id,
+                    "resource_name": queue_name,
+                    "policy": {"dry_run": True},
+                },
+            )
+        else:
+            return alb_response(
+                404,
+                {
+                    "status": "not_found",
+                    "account_id": account_id,
+                    "message": f"[DRY RUN] No queue policy found for {queue_name} on {account_id}",
+                },
+                "404 Not Found",
+            )
+
+    # POST: simulate unlock
+    if queue_exists:
+        return alb_response(
+            200,
+            {
+                "status": "unlocked",
+                "account_id": account_id,
+                "resource_name": queue_name,
+                "message": f"[DRY RUN] Queue policy deleted for {queue_name} on {account_id}",
+            },
+        )
+    else:
+        return alb_response(
+            404,
+            {
+                "status": "not_found",
+                "account_id": account_id,
+                "resource_name": queue_name,
+                "message": f"[DRY RUN] Queue {queue_name} not found on {account_id}",
+            },
+            "404 Not Found",
+        )
 
 
 def assume_root(account_id, policy_name, duration_seconds=900):
@@ -89,6 +145,9 @@ def lambda_handler(event, context):
         )
 
     http_method = event.get("httpMethod", "POST")
+
+    if ENVIRONMENT == "development":
+        return handle_dry_run_sqs(account_id, queue_name, http_method)
 
     try:
         creds = assume_root(account_id, TARGET_POLICY_NAME)
