@@ -1,6 +1,6 @@
-# AWS Root Access Management API
+# AWS Root Access Management
 
-This project provides an API for performing specific, tightly‑scoped privileged root tasks (using short‑term `sts:AssumeRoot` sessions) and for recovering access to locked Amazon S3 buckets or Amazon SQS queues whose resource policies block all principals. The functionality is exposed through AWS Lambda functions integrated with an internet‑facing Application Load Balancer (ALB).
+This project provides functionality for performing specific, tightly‑scoped privileged root tasks (using short‑term `sts:AssumeRoot` sessions) and for recovering access to locked Amazon S3 buckets or Amazon SQS queues whose resource policies block all principals. The functionality is exposed through AWS Lambda functions that are invoked directly by an IAM role on a remote account.
 
 
 ## Features
@@ -11,10 +11,10 @@ This project provides an API for performing specific, tightly‑scoped privilege
 
 ## Architecture
 
-All Lambda functions are deployed inside a dedicated VPC, in private subnets, to prevent direct inbound access and to force traffic through controlled integration points. An internet‑facing ALB provides HTTPS endpoints that invoke Lambda target groups (Lambda as ALB targets) without exposing the functions directly.
+All Lambda functions are deployed inside a dedicated VPC, in private subnets, to prevent direct inbound access and to force traffic through controlled integration points. The Lambda functions are invoked directly by the `compliance-dashboard` IAM role on a designated remote account via cross-account Lambda invocation permissions.
 
 ### Multi‑Region Considerations
-Unlock operations may need to target S3 buckets or SQS queues residing in multiple AWS Regions. The current baseline deploys Lambda functions only in the primary Region (us‑east‑1). Cross‑Region operations are performed via `sts:AssumeRoot` into member accounts and region‑specific service API calls. (If ultra‑low latency or Region isolation is required, you can extend by deploying a regional copy of this stack per Region behind a global DNS / latency policy.)
+Unlock operations may need to target S3 buckets or SQS queues residing in multiple AWS Regions. The current baseline deploys Lambda functions only in the primary Region (us‑east‑1). Cross‑Region operations are performed via `sts:AssumeRoot` into member accounts and region‑specific service API calls. (If ultra‑low latency or Region isolation is required, you can extend by deploying a regional copy of this stack per Region.)
 
 ### VPC Endpoints (Current)
 Interface or gateway VPC endpoints eliminate the need for public internet egress for core AWS API calls:
@@ -42,19 +42,17 @@ Interface or gateway VPC endpoints eliminate the need for public internet egress
 - `unlock_s3_bucket_lambda`: GET (view policy), POST (delete policy)
 - `unlock_sqs_queue_lambda`: GET (view policy), POST (delete policy)
 
-**Application Load Balancer**
-- ALB terminating TLS (ACM certificate for `ram.enterpriseme.academy`).
-- Listener rules route based on path prefixes to Lambda target groups.
+**Cross-Account Invocation**
+- Lambda functions grant `lambda:InvokeFunction` permission to the `compliance-dashboard` IAM role on the configured remote account.
+- The invoking role and remote account ID are both configurable via Terraform variables (`compliance_dashboard_role_name`, `compliance_dashboard_account_id`).
 
 ### Security Notes
 - Privileged actions are constrained to short‑lived `sts:AssumeRoot` sessions; no long‑term root credentials are created or stored.
-- Implement AWS WAF (not yet included) on the ALB if exposed broadly to external users.
-- Consider adding an IP allow list or authentication (e.g., signed headers, JWT at an API Gateway front) if usage should be restricted. ALB today provides unauthenticated public endpoints.
+- Lambda functions are only invocable by the designated `compliance-dashboard` role on the specified remote account.
 - Service Control Policy enforces no long‑term root credential usage in member accounts while allowing privileged tasks (referenced below).
 - Ensure least‑privilege execution roles restrict actions only to required privileged task policies plus logging.
 
 ### Future Enhancements (Optional)
-- Replace ALB + Lambda integration with Amazon API Gateway for built‑in auth, usage plans, throttling, and native Lambda proxy integration.
 - Multi‑account deployment automation (e.g., via StackSets or delegated CI) for regional copies.
 - Structured audit logging & tracing (Powertools + X-Ray) with correlation IDs.
 
@@ -72,25 +70,16 @@ Interface or gateway VPC endpoints eliminate the need for public internet egress
 2. Run `terraform init` to initialize.
 3. Run `terraform apply` to deploy all resources.
 
+### Invoking the Lambda Functions
 
-### Endpoints (via ALB)
-
-You can invoke the Lambda functions using the following endpoints:
+The Lambda functions accept a JSON event payload and are invoked directly via the AWS SDK or CLI from the `compliance-dashboard` role on the remote account.
 
 - **Unlock S3 Bucket**
-  - `GET  /unlock-s3-bucket/{accountNumber}/{bucketName}` — View S3 bucket policy
-  - `POST /unlock-s3-bucket/{accountNumber}/{bucketName}` — Delete S3 bucket policy
+  - `{"account_id": "<accountNumber>", "bucket_name": "<bucketName>", "action": "GET"}` — View S3 bucket policy
+  - `{"account_id": "<accountNumber>", "bucket_name": "<bucketName>", "action": "POST"}` — Delete S3 bucket policy
 - **Unlock SQS Queue**
-  - `GET  /unlock-sqs-queue/{accountNumber}/{queueName}` — View SQS queue policy
-  - `POST /unlock-sqs-queue/{accountNumber}/{queueName}` — Delete SQS queue policy
-
-All endpoints are available at:
-
-`https://ram.enterpriseme.academy/{path}`
-
-### Static Website
-
-A simple static website is included in `simple-static-website/` for interacting with the ALB endpoints.
+  - `{"account_id": "<accountNumber>", "queue_name": "<queueName>", "action": "GET"}` — View SQS queue policy
+  - `{"account_id": "<accountNumber>", "queue_name": "<queueName>", "action": "POST"}` — Delete SQS queue policy
 
 
 ## Security
@@ -98,12 +87,11 @@ A simple static website is included in `simple-static-website/` for interacting 
 - Lambda functions use least‑privilege IAM roles (recommend auditing with IAM Access Analyzer & CloudTrail).
 - CloudWatch logs are enabled for auditing (add Logs VPC endpoint for stricter egress control).
 - Dedicated Service Control Policy denies use of long‑term root credentials while allowing `AssumeRoot` privileged sessions. See AWS docs on the `aws:CalledVia` / `aws:PrincipalArn` conditions and assumed-root session keys. [Reference](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-assumedroot)
-- Consider adding: WAF ACL, centralized alerting on privileged task invocations, and guardrail SCPs that scope which accounts can be targeted.
-
+- Consider adding: centralized alerting on privileged task invocations, and guardrail SCPs that scope which accounts can be targeted.
 
 
 
 ## Troubleshooting
 
 - For Lambda errors, check CloudWatch logs for debugging information.
-- If you receive 403 errors from the ALB, ensure Lambda permissions for ALB invocation are set correctly in Terraform.
+- If you receive access denied errors when invoking the Lambda, ensure the `compliance_dashboard_account_id` and `compliance_dashboard_role_name` variables are set correctly in Terraform.

@@ -93,7 +93,7 @@ Each Lambda function has its own test file.  Inside each file the tests are spli
 
 | Class | What it tests |
 |---|---|
-| `TestAlbResponseS3 / SQS` | `alb_response()` helper – correct shape, JSON serialisation, headers |
+| `TestLambdaResponseS3 / SQS` | `lambda_response()` helper – correct shape, body returned as dict |
 | `TestGetBoto3SessionS3 / SQS` | `get_boto3_session()` – local vs. production session |
 | `TestHandleDryRunS3 / SQS` | `handle_dry_run_s3/sqs()` – dry-run mode with present/absent resources |
 | `TestAssumeRootS3 / SQS` | `assume_root()` – STS call, policy ARN construction, error propagation |
@@ -109,10 +109,10 @@ Each Lambda function has its own test file.  Inside each file the tests are spli
 
 | Fixture | Description |
 |---|---|
-| `s3_get_event` | Minimal ALB GET event for the S3 Lambda |
-| `s3_post_event` | Minimal ALB POST event for the S3 Lambda |
-| `sqs_get_event` | Minimal ALB GET event for the SQS Lambda |
-| `sqs_post_event` | Minimal ALB POST event for the SQS Lambda |
+| `s3_get_event` | Direct invocation GET event for the S3 Lambda |
+| `s3_post_event` | Direct invocation POST event for the S3 Lambda |
+| `sqs_get_event` | Direct invocation GET event for the SQS Lambda |
+| `sqs_post_event` | Direct invocation POST event for the SQS Lambda |
 | `mock_sts_client` | `MagicMock` STS client; `assume_root` returns `FAKE_CREDENTIALS` |
 | `mock_s3_client` | `MagicMock` S3 client; `get_bucket_policy` returns `SAMPLE_S3_POLICY` |
 | `mock_sqs_client` | `MagicMock` SQS client; `get_queue_url` and `get_queue_attributes` return pre-configured values |
@@ -185,6 +185,14 @@ def test_access_denied_returns_500(self, s3_get_event, patch_s3_boto3_session, m
     assert response["statusCode"] == 500
 ```
 
+Use pytest's built-in `monkeypatch` fixture to set/delete **runtime** environment variables (i.e. ones read inside the function body):
+
+```python
+def test_local_session(self, monkeypatch):
+    monkeypatch.setenv("LOCAL_TEST", "true")
+    ...
+```
+
 ### 4. Overriding module-level environment variables
 
 Some Lambda functions read `os.environ` at module import time (e.g. `ENVIRONMENT`, `PROTECTED_BUCKETS`).  Override those module attributes directly with `unittest.mock.patch.object`:
@@ -193,18 +201,10 @@ Some Lambda functions read `os.environ` at module import time (e.g. `ENVIRONMENT
 from unittest.mock import patch
 
 def test_protected_bucket(self):
-    event = {"path": f"/unlock-s3-bucket/123456789012/my-bucket"}
+    event = {"account_id": "123456789012", "bucket_name": "my-bucket", "action": "POST"}
     with patch.object(s3_lambda, "PROTECTED_BUCKETS", ["my-bucket"]):
         response = s3_lambda.lambda_handler(event, None)
     assert response["statusCode"] == 403
-```
-
-Use pytest's built-in `monkeypatch` fixture to set/delete **runtime** environment variables (i.e. ones read inside the function body):
-
-```python
-def test_local_session(self, monkeypatch):
-    monkeypatch.setenv("LOCAL_TEST", "true")
-    ...
 ```
 
 ---

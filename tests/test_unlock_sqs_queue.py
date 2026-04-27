@@ -3,11 +3,11 @@ Unit tests for lambda_code/unlock_sqs_queue_lambda/unlock_sqs_queue.py.
 
 Test classes
 ------------
-* ``TestAlbResponseSQS``       – helper function ``alb_response``
-* ``TestGetBoto3SessionSQS``   – helper function ``get_boto3_session``
-* ``TestHandleDryRunSQS``      – dry-run simulation ``handle_dry_run_sqs``
-* ``TestAssumeRootSQS``        – STS root-assumption helper ``assume_root``
-* ``TestLambdaHandlerSQS``     – main ``lambda_handler`` entry point
+* ``TestLambdaResponseSQS``   – helper function ``lambda_response``
+* ``TestGetBoto3SessionSQS``  – helper function ``get_boto3_session``
+* ``TestHandleDryRunSQS``     – dry-run simulation ``handle_dry_run_sqs``
+* ``TestAssumeRootSQS``       – STS root-assumption helper ``assume_root``
+* ``TestLambdaHandlerSQS``    – main ``lambda_handler`` entry point
 """
 
 import json
@@ -27,42 +27,26 @@ from tests.conftest import (
 
 
 # ===========================================================================
-# TestAlbResponseSQS
+# TestLambdaResponseSQS
 # ===========================================================================
 
 
-class TestAlbResponseSQS:
-    """Unit tests for the ``alb_response`` helper in the SQS unlock Lambda."""
+class TestLambdaResponseSQS:
+    """Unit tests for the ``lambda_response`` helper in the SQS unlock Lambda."""
 
     def test_status_code_is_propagated(self):
-        response = sqs_lambda.alb_response(200, {"status": "ok"})
+        response = sqs_lambda.lambda_response(200, {"status": "ok"})
         assert response["statusCode"] == 200
 
-    def test_default_status_description_uses_status_code(self):
-        response = sqs_lambda.alb_response(201, {})
-        assert response["statusDescription"] == "201 OK"
-
-    def test_custom_status_description_is_used(self):
-        response = sqs_lambda.alb_response(404, {}, "404 Not Found")
-        assert response["statusDescription"] == "404 Not Found"
-
-    def test_body_is_json_serialised(self):
+    def test_body_is_returned_as_dict(self):
         body = {"key": "value", "nested": {"n": 1}}
-        response = sqs_lambda.alb_response(200, body)
-        assert json.loads(response["body"]) == body
+        response = sqs_lambda.lambda_response(200, body)
+        assert response["body"] == body
 
-    def test_is_base64_encoded_is_false(self):
-        response = sqs_lambda.alb_response(200, {})
-        assert response["isBase64Encoded"] is False
-
-    def test_default_headers_are_applied(self):
-        response = sqs_lambda.alb_response(200, {})
-        assert "Content-Type" in response["headers"]
-
-    def test_custom_headers_override_default(self):
-        custom = {"X-Custom-Header": "test-value"}
-        response = sqs_lambda.alb_response(200, {}, headers=custom)
-        assert response["headers"] == custom
+    def test_response_contains_status_code_and_body(self):
+        response = sqs_lambda.lambda_response(404, {"status": "not_found"})
+        assert "statusCode" in response
+        assert "body" in response
 
 
 # ===========================================================================
@@ -106,32 +90,30 @@ class TestHandleDryRunSQS:
     def test_get_present_queue_returns_200(self):
         response = sqs_lambda.handle_dry_run_sqs(ACCOUNT_ID, "present-queue", "GET")
         assert response["statusCode"] == 200
-        assert json.loads(response["body"])["status"] == "success"
+        assert response["body"]["status"] == "success"
 
     def test_get_absent_queue_returns_404(self):
         response = sqs_lambda.handle_dry_run_sqs(ACCOUNT_ID, "absent-queue", "GET")
         assert response["statusCode"] == 404
-        assert json.loads(response["body"])["status"] == "not_found"
+        assert response["body"]["status"] == "not_found"
 
     def test_post_present_queue_returns_unlocked(self):
         response = sqs_lambda.handle_dry_run_sqs(ACCOUNT_ID, "present-queue", "POST")
         assert response["statusCode"] == 200
-        assert json.loads(response["body"])["status"] == "unlocked"
+        assert response["body"]["status"] == "unlocked"
 
     def test_post_absent_queue_returns_404(self):
         response = sqs_lambda.handle_dry_run_sqs(ACCOUNT_ID, "absent-queue", "POST")
         assert response["statusCode"] == 404
-        assert json.loads(response["body"])["status"] == "not_found"
+        assert response["body"]["status"] == "not_found"
 
     def test_dry_run_response_includes_account_id(self):
         response = sqs_lambda.handle_dry_run_sqs(ACCOUNT_ID, "absent-queue", "POST")
-        body = json.loads(response["body"])
-        assert body["account_id"] == ACCOUNT_ID
+        assert response["body"]["account_id"] == ACCOUNT_ID
 
     def test_dry_run_response_includes_resource_name(self):
         response = sqs_lambda.handle_dry_run_sqs(ACCOUNT_ID, "present-queue", "GET")
-        body = json.loads(response["body"])
-        assert body["resource_name"] == "present-queue"
+        assert response["body"]["resource_name"] == "present-queue"
 
 
 # ===========================================================================
@@ -184,21 +166,19 @@ class TestLambdaHandlerSQS:
     # --- input validation ---------------------------------------------------
 
     def test_missing_account_id_returns_400(self):
-        event = {"path": "/unlock-sqs-queue/"}
+        event = {"queue_name": QUEUE_NAME}
         response = sqs_lambda.lambda_handler(event, None)
         assert response["statusCode"] == 400
-        body = json.loads(response["body"])
-        assert body["message"] == "Missing account_id in path parameters"
+        assert response["body"]["message"] == "Missing account_id in path parameters"
 
     def test_missing_queue_name_returns_400(self):
-        event = {"path": f"/unlock-sqs-queue/{ACCOUNT_ID}"}
+        event = {"account_id": ACCOUNT_ID}
         response = sqs_lambda.lambda_handler(event, None)
         assert response["statusCode"] == 400
-        body = json.loads(response["body"])
-        assert body["message"] == "Missing queue_name in path parameters"
+        assert response["body"]["message"] == "Missing queue_name in path parameters"
 
-    def test_empty_path_returns_400(self):
-        response = sqs_lambda.lambda_handler({"path": ""}, None)
+    def test_empty_event_returns_400(self):
+        response = sqs_lambda.lambda_handler({}, None)
         assert response["statusCode"] == 400
 
     # --- development / dry-run mode -----------------------------------------
@@ -207,7 +187,7 @@ class TestLambdaHandlerSQS:
         with patch.object(sqs_lambda, "ENVIRONMENT", "development"), patch.object(
             sqs_lambda, "handle_dry_run_sqs"
         ) as mock_dry:
-            mock_dry.return_value = {"statusCode": 200, "body": "{}"}
+            mock_dry.return_value = {"statusCode": 200, "body": {}}
             sqs_lambda.lambda_handler(sqs_get_event, None)
             mock_dry.assert_called_once_with(ACCOUNT_ID, QUEUE_NAME, "GET")
 
@@ -215,7 +195,7 @@ class TestLambdaHandlerSQS:
         with patch.object(sqs_lambda, "ENVIRONMENT", "development"), patch.object(
             sqs_lambda, "handle_dry_run_sqs"
         ) as mock_dry:
-            mock_dry.return_value = {"statusCode": 200, "body": "{}"}
+            mock_dry.return_value = {"statusCode": 200, "body": {}}
             sqs_lambda.lambda_handler(sqs_post_event, None)
             mock_dry.assert_called_once_with(ACCOUNT_ID, QUEUE_NAME, "POST")
 
@@ -228,8 +208,7 @@ class TestLambdaHandlerSQS:
         with patch.object(sqs_lambda, "ENVIRONMENT", ""):
             response = sqs_lambda.lambda_handler(sqs_get_event, None)
         assert response["statusCode"] == 404
-        body = json.loads(response["body"])
-        assert body["status"] == "not_found"
+        assert response["body"]["status"] == "not_found"
 
     # --- GET – read queue policy --------------------------------------------
 
@@ -237,9 +216,8 @@ class TestLambdaHandlerSQS:
         with patch.object(sqs_lambda, "ENVIRONMENT", ""):
             response = sqs_lambda.lambda_handler(sqs_get_event, None)
         assert response["statusCode"] == 200
-        body = json.loads(response["body"])
-        assert body["status"] == "success"
-        assert body["policy"] == SAMPLE_SQS_POLICY
+        assert response["body"]["status"] == "success"
+        assert response["body"]["policy"] == SAMPLE_SQS_POLICY
 
     def test_get_no_queue_policy_returns_404(
         self, sqs_get_event, patch_sqs_boto3_session, mock_sqs_client
@@ -248,8 +226,7 @@ class TestLambdaHandlerSQS:
         with patch.object(sqs_lambda, "ENVIRONMENT", ""):
             response = sqs_lambda.lambda_handler(sqs_get_event, None)
         assert response["statusCode"] == 404
-        body = json.loads(response["body"])
-        assert body["status"] == "not_found"
+        assert response["body"]["status"] == "not_found"
 
     def test_get_attributes_error_returns_500(
         self, sqs_get_event, patch_sqs_boto3_session, mock_sqs_client
@@ -267,8 +244,7 @@ class TestLambdaHandlerSQS:
         with patch.object(sqs_lambda, "ENVIRONMENT", ""):
             response = sqs_lambda.lambda_handler(sqs_post_event, None)
         assert response["statusCode"] == 200
-        body = json.loads(response["body"])
-        assert body["status"] == "unlocked"
+        assert response["body"]["status"] == "unlocked"
         mock_sqs_client.set_queue_attributes.assert_called_once_with(
             QueueUrl=QUEUE_URL, Attributes={"Policy": ""}
         )
@@ -280,8 +256,7 @@ class TestLambdaHandlerSQS:
         with patch.object(sqs_lambda, "ENVIRONMENT", ""):
             response = sqs_lambda.lambda_handler(sqs_post_event, None)
         assert response["statusCode"] == 200
-        body = json.loads(response["body"])
-        assert body["status"] == "not_locked"
+        assert response["body"]["status"] == "not_locked"
 
     def test_post_set_attributes_failure_returns_500(
         self, sqs_post_event, patch_sqs_boto3_session, mock_sqs_client
@@ -311,5 +286,4 @@ class TestLambdaHandlerSQS:
         ):
             response = sqs_lambda.lambda_handler(sqs_post_event, None)
         assert response["statusCode"] == 500
-        body = json.loads(response["body"])
-        assert body["status"] == "error"
+        assert response["body"]["status"] == "error"
