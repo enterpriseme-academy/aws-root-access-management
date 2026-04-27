@@ -6,7 +6,7 @@ the ``tests/`` directory. It provides:
 
 * Python path setup so the Lambda modules can be imported without installing them.
 * Reusable constants (account IDs, bucket/queue names, fake credentials, sample policies).
-* ALB event fixtures for both Lambda functions.
+* Direct invocation event fixtures for both Lambda functions.
 * Mock AWS client fixtures (STS, S3, SQS) built with ``unittest.mock.MagicMock``.
 * A composite ``mock_boto3_session`` fixture that routes ``session.client()`` calls
   to the appropriate mock client.
@@ -64,43 +64,47 @@ SAMPLE_SQS_POLICY = {
 }
 
 # ---------------------------------------------------------------------------
-# ALB event fixtures
+# Direct invocation event fixtures
 # ---------------------------------------------------------------------------
 
 
 @pytest.fixture
 def s3_get_event():
-    """Minimal ALB GET event targeting the S3 unlock Lambda."""
+    """Direct invocation GET event for the S3 unlock Lambda."""
     return {
-        "path": f"/unlock-s3-bucket/{ACCOUNT_ID}/{BUCKET_NAME}",
-        "httpMethod": "GET",
+        "account_id": ACCOUNT_ID,
+        "bucket_name": BUCKET_NAME,
+        "action": "GET",
     }
 
 
 @pytest.fixture
 def s3_post_event():
-    """Minimal ALB POST event targeting the S3 unlock Lambda."""
+    """Direct invocation POST event for the S3 unlock Lambda."""
     return {
-        "path": f"/unlock-s3-bucket/{ACCOUNT_ID}/{BUCKET_NAME}",
-        "httpMethod": "POST",
+        "account_id": ACCOUNT_ID,
+        "bucket_name": BUCKET_NAME,
+        "action": "POST",
     }
 
 
 @pytest.fixture
 def sqs_get_event():
-    """Minimal ALB GET event targeting the SQS unlock Lambda."""
+    """Direct invocation GET event for the SQS unlock Lambda."""
     return {
-        "path": f"/unlock-sqs-queue/{ACCOUNT_ID}/{QUEUE_NAME}",
-        "httpMethod": "GET",
+        "account_id": ACCOUNT_ID,
+        "queue_name": QUEUE_NAME,
+        "action": "GET",
     }
 
 
 @pytest.fixture
 def sqs_post_event():
-    """Minimal ALB POST event targeting the SQS unlock Lambda."""
+    """Direct invocation POST event for the SQS unlock Lambda."""
     return {
-        "path": f"/unlock-sqs-queue/{ACCOUNT_ID}/{QUEUE_NAME}",
-        "httpMethod": "POST",
+        "account_id": ACCOUNT_ID,
+        "queue_name": QUEUE_NAME,
+        "action": "POST",
     }
 
 

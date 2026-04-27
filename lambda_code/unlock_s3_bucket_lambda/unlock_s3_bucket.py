@@ -9,24 +9,14 @@ logger = Logger()
 
 TARGET_POLICY_NAME = "S3UnlockBucketPolicy"
 PROFILE_NAME = "sandbox"  # Used only for local testing
-DOMAIN = os.environ.get("DOMAIN", "*")
-HEADERS = {
-    "Access-Control-Allow-Origin": DOMAIN,
-    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Content-Type": "application/json",
-}
 PROTECTED_BUCKETS = os.environ.get("PROTECTED_BUCKETS", "").split(",")
 ENVIRONMENT = os.environ.get("ENVIRONMENT", "")
 
 
-def alb_response(status_code, body_dict, status_description=None, headers=None):
+def lambda_response(status_code, body_dict):
     return {
         "statusCode": status_code,
-        "statusDescription": status_description or f"{status_code} OK",
-        "isBase64Encoded": False,
-        "headers": headers or HEADERS,
-        "body": json.dumps(body_dict),
+        "body": body_dict,
     }
 
 
@@ -40,16 +30,16 @@ def get_boto3_session():
         return boto3.Session()
 
 
-def handle_dry_run_s3(account_id, bucket_name, http_method):
+def handle_dry_run_s3(account_id, bucket_name, action):
     """Simulate S3 bucket responses for development dry-run mode."""
     logger.info(
         f"DRY RUN: Simulating S3 bucket operation for {bucket_name} in account {account_id}"
     )
     bucket_exists = "present" in bucket_name.lower()
 
-    if http_method == "GET":
+    if action == "GET":
         if bucket_exists:
-            return alb_response(
+            return lambda_response(
                 200,
                 {
                     "status": "success",
@@ -59,18 +49,17 @@ def handle_dry_run_s3(account_id, bucket_name, http_method):
                 },
             )
         else:
-            return alb_response(
+            return lambda_response(
                 404,
                 {
                     "status": "not_found",
                     "message": f"[DRY RUN] No bucket policy found for {bucket_name} on {account_id}",
                 },
-                "404 Not Found",
             )
 
     # POST: simulate unlock
     if bucket_exists:
-        return alb_response(
+        return lambda_response(
             200,
             {
                 "status": "unlocked",
@@ -80,7 +69,7 @@ def handle_dry_run_s3(account_id, bucket_name, http_method):
             },
         )
     else:
-        return alb_response(
+        return lambda_response(
             404,
             {
                 "status": "not_found",
@@ -88,7 +77,6 @@ def handle_dry_run_s3(account_id, bucket_name, http_method):
                 "resource_name": bucket_name,
                 "message": f"[DRY RUN] Bucket {bucket_name} not found on {account_id}",
             },
-            "404 Not Found",
         )
 
 
@@ -109,37 +97,28 @@ def assume_root(account_id, policy_name, duration_seconds=900):
 def lambda_handler(event, context):
     logger.info("Starting unlock S3 bucket process", extra={"event": event})
 
-    path_param = event.get("path", {})
-    try:
-        account_id = path_param.split("/")[2]
-    except (AttributeError, IndexError):
-        account_id = None
-    try:
-        bucket_name = path_param.split("/")[3]
-    except (AttributeError, IndexError):
-        bucket_name = None
+    account_id = event.get("account_id")
+    bucket_name = event.get("bucket_name")
 
     if not account_id:
-        logger.error("Missing account_id in path parameters")
-        return alb_response(
+        logger.error("Missing account_id in event")
+        return lambda_response(
             400,
             {
                 "status": "error",
                 "account_id": None,
                 "message": "Missing account_id in path parameters",
             },
-            "400 Bad Request",
         )
     if not bucket_name:
-        logger.error("Missing bucket_name in path parameters")
-        return alb_response(
+        logger.error("Missing bucket_name in event")
+        return lambda_response(
             400,
             {
                 "status": "error",
                 "account_id": account_id,
                 "message": "Missing bucket_name in path parameters",
             },
-            "400 Bad Request",
         )
 
     # Protect buckets in PROTECTED_BUCKETS or matching <12-digit-accountid>-tf-state
@@ -148,7 +127,7 @@ def lambda_handler(event, context):
         logger.error(
             f"Bucket {bucket_name} is protected (either in PROTECTED_BUCKETS or matches <accountid>-tf-state pattern)"
         )
-        return alb_response(
+        return lambda_response(
             403,
             {
                 "status": "error",
@@ -156,13 +135,12 @@ def lambda_handler(event, context):
                 "bucket_name": bucket_name,
                 "message": f"Bucket {bucket_name} is protected",
             },
-            "403 Forbidden",
         )
 
-    http_method = event.get("httpMethod", "POST")
+    action = event.get("action", "POST")
 
     if ENVIRONMENT == "development":
-        return handle_dry_run_s3(account_id, bucket_name, http_method)
+        return handle_dry_run_s3(account_id, bucket_name, action)
 
     try:
         creds = assume_root(account_id, TARGET_POLICY_NAME)
@@ -186,13 +164,13 @@ def lambda_handler(event, context):
 
         s3 = session.client("s3")
 
-        if http_method == "GET":
+        if action == "GET":
             # Return the bucket policy
             try:
                 response = s3.get_bucket_policy(Bucket=bucket_name)
                 policy_json = json.loads(response["Policy"])
                 logger.info("Bucket policy found", extra={"policy": policy_json})
-                return alb_response(
+                return lambda_response(
                     200,
                     {
                         "status": "success",
@@ -205,23 +183,21 @@ def lambda_handler(event, context):
                 error_code = e.response.get("Error", {}).get("Code")
                 if error_code == "NoSuchBucketPolicy":
                     logger.info("Bucket policy does not exist")
-                    return alb_response(
+                    return lambda_response(
                         404,
                         {
                             "status": "not_found",
                             "message": f"No bucket policy found for {bucket_name} on {account_id}",
                         },
-                        "404 Not Found",
                     )
                 else:
                     logger.error(f"Error reading bucket policy: {e}")
-                    return alb_response(
+                    return lambda_response(
                         500,
                         {
                             "status": "error",
                             "message": f"Error reading bucket policy: {str(e)}",
                         },
-                        "500 Internal Server Error",
                     )
 
         # POST method: unlock (delete) the bucket policy
@@ -243,7 +219,7 @@ def lambda_handler(event, context):
             try:
                 s3.delete_bucket_policy(Bucket=bucket_name)
                 logger.info("Bucket policy deleted successfully")
-                return alb_response(
+                return lambda_response(
                     200,
                     {
                         "status": "unlocked",
@@ -254,16 +230,15 @@ def lambda_handler(event, context):
                 )
             except Exception as e:
                 logger.error(f"Failed to delete bucket policy: {e}")
-                return alb_response(
+                return lambda_response(
                     500,
                     {
                         "status": "error",
                         "message": f"Failed to delete bucket policy: {str(e)}",
                     },
-                    "500 Internal Server Error",
                 )
         else:
-            return alb_response(
+            return lambda_response(
                 200,
                 {
                     "status": "not_locked",
@@ -274,18 +249,17 @@ def lambda_handler(event, context):
             )
     except Exception as e:
         logger.error(f"Unhandled exception: {e}")
-        return alb_response(
+        return lambda_response(
             500,
             {
                 "status": "error",
                 "message": f"Unhandled exception: {str(e)}",
             },
-            "500 Internal Server Error",
         )
 
 
 if __name__ == "__main__":
     # Example event for local testing
     os.environ["LOCAL_TEST"] = "true"
-    test_event = {"path": "/unlock-s3-bucket/068167017169/068167017169-test-bucket"}
+    test_event = {"account_id": "068167017169", "bucket_name": "068167017169-test-bucket", "action": "GET"}
     lambda_handler(test_event, None)
