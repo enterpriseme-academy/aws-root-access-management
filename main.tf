@@ -213,6 +213,7 @@ module "unlock_s3_bucket_lambda" {
     POWERTOOLS_METRICS_FUNCTION_NAME = "S3UnlockBucketPolicy"
     POWERTOOLS_LOG_LEVEL             = "INFO"
     POWERTOOLS_METRICS_NAMESPACE     = "AWSRootAccessManagement"
+    ENVIRONMENT                      = var.environment
   }
   create_role              = true
   attach_policy_statements = true
@@ -339,6 +340,7 @@ module "unlock_sqs_queue_lambda" {
     POWERTOOLS_METRICS_FUNCTION_NAME = "SQSUnlockQueuePolicy"
     POWERTOOLS_LOG_LEVEL             = "INFO"
     POWERTOOLS_METRICS_NAMESPACE     = "AWSRootAccessManagement"
+    ENVIRONMENT                      = var.environment
   }
   create_role              = true
   attach_policy_statements = true

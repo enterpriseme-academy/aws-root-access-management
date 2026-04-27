@@ -17,6 +17,7 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 PROTECTED_BUCKETS = os.environ.get("PROTECTED_BUCKETS", "").split(",")
+ENVIRONMENT = os.environ.get("ENVIRONMENT", "")
 
 
 def alb_response(status_code, body_dict, status_description=None, headers=None):
@@ -37,6 +38,58 @@ def get_boto3_session():
         return boto3.Session(profile_name=PROFILE_NAME)
     else:
         return boto3.Session()
+
+
+def handle_dry_run_s3(account_id, bucket_name, http_method):
+    """Simulate S3 bucket responses for development dry-run mode."""
+    logger.info(
+        f"DRY RUN: Simulating S3 bucket operation for {bucket_name} in account {account_id}"
+    )
+    bucket_exists = "present" in bucket_name.lower()
+
+    if http_method == "GET":
+        if bucket_exists:
+            return alb_response(
+                200,
+                {
+                    "status": "success",
+                    "account_id": account_id,
+                    "resource_name": bucket_name,
+                    "policy": {"dry_run": True},
+                },
+            )
+        else:
+            return alb_response(
+                404,
+                {
+                    "status": "not_found",
+                    "message": f"[DRY RUN] No bucket policy found for {bucket_name} on {account_id}",
+                },
+                "404 Not Found",
+            )
+
+    # POST: simulate unlock
+    if bucket_exists:
+        return alb_response(
+            200,
+            {
+                "status": "unlocked",
+                "account_id": account_id,
+                "resource_name": bucket_name,
+                "message": f"[DRY RUN] Bucket policy deleted for {bucket_name} on {account_id}",
+            },
+        )
+    else:
+        return alb_response(
+            404,
+            {
+                "status": "not_found",
+                "account_id": account_id,
+                "resource_name": bucket_name,
+                "message": f"[DRY RUN] Bucket {bucket_name} not found on {account_id}",
+            },
+            "404 Not Found",
+        )
 
 
 def assume_root(account_id, policy_name, duration_seconds=900):
@@ -107,6 +160,9 @@ def lambda_handler(event, context):
         )
 
     http_method = event.get("httpMethod", "POST")
+
+    if ENVIRONMENT == "development":
+        return handle_dry_run_s3(account_id, bucket_name, http_method)
 
     try:
         creds = assume_root(account_id, TARGET_POLICY_NAME)

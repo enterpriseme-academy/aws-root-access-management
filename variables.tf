@@ -5,3 +5,9 @@ variable "tags" {
     Terraform = "true"
   }
 }
+
+variable "environment" {
+  description = "Deployment environment (e.g. development, staging, production)"
+  type        = string
+  default     = ""
+}
