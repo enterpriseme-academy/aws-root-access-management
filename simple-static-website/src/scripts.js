@@ -93,62 +93,6 @@ function deleteBucketPolicy() {
     });
 }
 
-function deleteRootAccount() {
-  showSpinner();
-  const accountNumber = document.getElementById("accountNumber").value;
-  fetch(`${apiBaseUrl}/delete-root-login-profile/${accountNumber}`, {
-    method: "POST",
-  })
-    .then((response) => response.json())
-    .then((data) => {
-      const output = document.getElementById("message").querySelector("code");
-      if (data.status === "success") {
-        output.innerHTML = syntaxHighlight(
-          data.message || "Root account deleted and MFA deactivated."
-        );
-      } else {
-        output.innerHTML = syntaxHighlight(
-          data.message || "Failed to delete root account."
-        );
-      }
-      hideSpinner();
-    })
-    .catch((error) => {
-      console.error("Error deleting root account:", error);
-      const output = document.getElementById("message").querySelector("code");
-      output.innerHTML = syntaxHighlight("Error deleting root account.");
-      hideSpinner();
-    });
-}
-
-function createRootAccount() {
-  showSpinner();
-  const accountNumber = document.getElementById("accountNumber").value;
-  fetch(`${apiBaseUrl}/create-root-login-profile/${accountNumber}`, {
-    method: "POST",
-  })
-    .then((response) => response.json())
-    .then((data) => {
-      const output = document.getElementById("message").querySelector("code");
-      if (data.status === "success") {
-        output.innerHTML = syntaxHighlight(
-          data.message || "Root account created."
-        );
-      } else {
-        output.innerHTML = syntaxHighlight(
-          data.message || "Failed to create root account."
-        );
-      }
-      hideSpinner();
-    })
-    .catch((error) => {
-      console.error("Error creating root account:", error);
-      const output = document.getElementById("message").querySelector("code");
-      output.innerHTML = syntaxHighlight("Error creating root account.");
-      hideSpinner();
-    });
-}
-
 function getSqsPolicy() {
   showSpinner();
   const accountNumber = document.getElementById("sqsAccountNumber").value;
@@ -207,12 +151,6 @@ document
 document
   .getElementById("deletePolicyButton")
   .addEventListener("click", deleteBucketPolicy);
-document
-  .getElementById("deleteRootAccountButton")
-  .addEventListener("click", deleteRootAccount);
-document
-  .getElementById("createRootAccountButton")
-  .addEventListener("click", createRootAccount);
 document
   .getElementById("getSqsPolicyButton")
   .addEventListener("click", getSqsPolicy);
