@@ -217,7 +217,10 @@ def lambda_handler(event, context):
         if queue_policy_exist:
             try:
                 sqs.set_queue_attributes(QueueUrl=queue_url, Attributes={"Policy": ""})
-                logger.info("Queue policy deleted successfully")
+                logger.info(
+                    "Queue policy deleted successfully",
+                    extra={"account_id": account_id, "queue_name": queue_name},
+                )
                 return lambda_response(
                     200,
                     {

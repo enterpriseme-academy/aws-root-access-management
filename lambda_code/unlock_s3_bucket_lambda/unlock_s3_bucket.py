@@ -218,7 +218,10 @@ def lambda_handler(event, context):
         if bucket_policy_exist:
             try:
                 s3.delete_bucket_policy(Bucket=bucket_name)
-                logger.info("Bucket policy deleted successfully")
+                logger.info(
+                    "Bucket policy deleted successfully",
+                    extra={"account_id": account_id, "bucket_name": bucket_name},
+                )
                 return lambda_response(
                     200,
                     {
