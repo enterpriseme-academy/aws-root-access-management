@@ -13,6 +13,7 @@ Test classes
 
 import time
 import statistics
+import math
 import threading
 from unittest.mock import patch
 
@@ -181,9 +182,8 @@ class TestS3LambdaPerformance:
             s3_lambda.lambda_handler, s3_perf_event, TARGET_REQUESTS_PER_MINUTE
         )
         sorted_durations = sorted(durations)
-        # p95 index for 10 samples
-        p95_index = int(len(sorted_durations) * 0.95) - 1
-        p95_latency = sorted_durations[max(p95_index, 0)]
+        p95_index = math.ceil(len(sorted_durations) * 0.95) - 1
+        p95_latency = sorted_durations[p95_index]
 
         assert p95_latency < P95_LATENCY_THRESHOLD_SECONDS, (
             f"S3 Lambda p95 latency {p95_latency:.3f}s exceeds "
@@ -303,8 +303,8 @@ class TestSQSLambdaPerformance:
             sqs_lambda.lambda_handler, sqs_perf_event, TARGET_REQUESTS_PER_MINUTE
         )
         sorted_durations = sorted(durations)
-        p95_index = int(len(sorted_durations) * 0.95) - 1
-        p95_latency = sorted_durations[max(p95_index, 0)]
+        p95_index = math.ceil(len(sorted_durations) * 0.95) - 1
+        p95_latency = sorted_durations[p95_index]
 
         assert p95_latency < P95_LATENCY_THRESHOLD_SECONDS, (
             f"SQS Lambda p95 latency {p95_latency:.3f}s exceeds "
