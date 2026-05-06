@@ -12,7 +12,10 @@ tests/
 ├── conftest.py                  # Shared pytest fixtures (mock clients, events, constants)
 ├── requirements.txt             # Test-only dependencies
 ├── test_unlock_s3_bucket.py     # Tests for unlock_s3_bucket Lambda
-└── test_unlock_sqs_queue.py     # Tests for unlock_sqs_queue Lambda
+├── test_unlock_sqs_queue.py     # Tests for unlock_sqs_queue Lambda
+└── test_performance.py          # Performance tests (≥ 10 requests/minute SLA)
+scripts/
+└── run_performance_tests.sh     # Dedicated script to execute performance tests
 pytest.ini                       # Pytest configuration
 ```
 
@@ -78,6 +81,20 @@ pytest tests/test_unlock_s3_bucket.py::TestLambdaHandlerS3::test_get_returns_buc
 pytest -k "dry_run"
 ```
 
+### Run only the performance tests
+
+```bash
+pytest tests/test_performance.py -v
+```
+
+Or use the dedicated script (sets up a virtual environment automatically):
+
+```bash
+./scripts/run_performance_tests.sh
+./scripts/run_performance_tests.sh -v
+./scripts/run_performance_tests.sh -k "test_s3"
+```
+
 ### Generate a coverage report (requires `pytest-cov`)
 
 ```bash
@@ -98,6 +115,9 @@ Each Lambda function has its own test file.  Inside each file the tests are spli
 | `TestHandleDryRunS3 / SQS` | `handle_dry_run_s3/sqs()` – dry-run mode with present/absent resources |
 | `TestAssumeRootS3 / SQS` | `assume_root()` – STS call, policy ARN construction, error propagation |
 | `TestLambdaHandlerS3 / SQS` | `lambda_handler()` – full handler integration: validation, happy paths, error paths |
+| `TestS3LambdaPerformance` | Performance: single request latency, 10 sequential + concurrent requests within 60 s, p95 latency, throughput ≥ 10 req/min |
+| `TestSQSLambdaPerformance` | Performance: same SLA checks for the SQS unlock Lambda |
+| `TestCombinedPerformance` | Performance: 10 requests to both Lambdas combined within 60 s; average latency across both |
 
 ---
 

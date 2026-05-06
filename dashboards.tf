@@ -281,3 +281,244 @@ resource "aws_cloudwatch_dashboard" "product_owner" {
   dashboard_name = "ProductOwner-Unlock-Statistics"
   dashboard_body = local.product_owner_dashboard_body
 }
+
+locals {
+  # ---------------------------------------------------------------------------
+  # Auditor dashboard – compliance evidence, capacity (≥10 RPM), and full
+  # audit trail for AWS root-access unlock operations.
+  # ---------------------------------------------------------------------------
+  auditor_dashboard_body = jsonencode({
+    widgets = [
+      # Title / introduction
+      {
+        type   = "text"
+        x      = 0
+        y      = 0
+        width  = 24
+        height = 3
+        properties = {
+          markdown = "# AWS Root Access Management – Auditor Dashboard\nThis dashboard is intended for **auditors and compliance reviewers**. It provides evidence that the Lambda functions handling root-access unlocks are operating within approved performance boundaries (≥ 10 requests/minute capacity) and that every unlock action is logged and traceable."
+        }
+      },
+
+      # Row 1 — Invocation rate (left) | Error rate (right)
+      {
+        type   = "metric"
+        x      = 0
+        y      = 3
+        width  = 12
+        height = 6
+        properties = {
+          title   = "Lambda Invocation Rate (per minute)"
+          region  = data.aws_region.current.region
+          view    = "timeSeries"
+          stacked = false
+          period  = 60
+          metrics = [
+            ["AWS/Lambda", "Invocations", "FunctionName", module.unlock_s3_bucket_lambda.lambda_function_name, { stat = "Sum", label = "unlock_s3_bucket" }],
+            ["AWS/Lambda", "Invocations", "FunctionName", module.unlock_sqs_queue_lambda.lambda_function_name, { stat = "Sum", label = "unlock_sqs_queue" }]
+          ]
+          annotations = {
+            horizontal = [
+              {
+                label = "Required capacity (10 req/min)"
+                value = 10
+                color = "#2ca02c"
+              }
+            ]
+          }
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 3
+        width  = 12
+        height = 6
+        properties = {
+          title   = "Lambda Error Count"
+          region  = data.aws_region.current.region
+          view    = "timeSeries"
+          stacked = false
+          period  = 60
+          metrics = [
+            ["AWS/Lambda", "Errors", "FunctionName", module.unlock_s3_bucket_lambda.lambda_function_name, { stat = "Sum", color = "#d62728", label = "unlock_s3_bucket errors" }],
+            ["AWS/Lambda", "Errors", "FunctionName", module.unlock_sqs_queue_lambda.lambda_function_name, { stat = "Sum", color = "#ff7f0e", label = "unlock_sqs_queue errors" }]
+          ]
+        }
+      },
+
+      # Row 2 — Duration / latency (left) | Throttles (right)
+      {
+        type   = "metric"
+        x      = 0
+        y      = 9
+        width  = 12
+        height = 6
+        properties = {
+          title   = "Lambda Duration – p50 / p95 / p99 (ms)"
+          region  = data.aws_region.current.region
+          view    = "timeSeries"
+          stacked = false
+          period  = 60
+          metrics = [
+            ["AWS/Lambda", "Duration", "FunctionName", module.unlock_s3_bucket_lambda.lambda_function_name, { stat = "p50", label = "s3 p50" }],
+            ["AWS/Lambda", "Duration", "FunctionName", module.unlock_s3_bucket_lambda.lambda_function_name, { stat = "p95", label = "s3 p95" }],
+            ["AWS/Lambda", "Duration", "FunctionName", module.unlock_s3_bucket_lambda.lambda_function_name, { stat = "p99", label = "s3 p99" }],
+            ["AWS/Lambda", "Duration", "FunctionName", module.unlock_sqs_queue_lambda.lambda_function_name, { stat = "p50", label = "sqs p50" }],
+            ["AWS/Lambda", "Duration", "FunctionName", module.unlock_sqs_queue_lambda.lambda_function_name, { stat = "p95", label = "sqs p95" }],
+            ["AWS/Lambda", "Duration", "FunctionName", module.unlock_sqs_queue_lambda.lambda_function_name, { stat = "p99", label = "sqs p99" }]
+          ]
+          annotations = {
+            horizontal = [
+              {
+                label = "Timeout threshold"
+                value = var.lambda_duration_threshold_ms
+                color = "#ff0000"
+              }
+            ]
+          }
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 9
+        width  = 12
+        height = 6
+        properties = {
+          title   = "Lambda Throttles"
+          region  = data.aws_region.current.region
+          view    = "timeSeries"
+          stacked = false
+          period  = 60
+          metrics = [
+            ["AWS/Lambda", "Throttles", "FunctionName", module.unlock_s3_bucket_lambda.lambda_function_name, { stat = "Sum", label = "unlock_s3_bucket" }],
+            ["AWS/Lambda", "Throttles", "FunctionName", module.unlock_sqs_queue_lambda.lambda_function_name, { stat = "Sum", label = "unlock_sqs_queue" }]
+          ]
+        }
+      },
+
+      # Row 3 — Successful unlocks (custom metrics)
+      {
+        type   = "metric"
+        x      = 0
+        y      = 15
+        width  = 12
+        height = 6
+        properties = {
+          title   = "S3 Buckets Successfully Unlocked"
+          region  = data.aws_region.current.region
+          view    = "timeSeries"
+          stacked = false
+          period  = 60
+          metrics = [
+            [{ expression = "SUM(SEARCH('{AWSRootAccessManagement,AccountId} S3BucketUnlocked', 'Sum', 60))", id = "s3_unlocked", label = "S3 Buckets Unlocked", period = 60 }]
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 15
+        width  = 12
+        height = 6
+        properties = {
+          title   = "SQS Queues Successfully Unlocked"
+          region  = data.aws_region.current.region
+          view    = "timeSeries"
+          stacked = false
+          period  = 60
+          metrics = [
+            [{ expression = "SUM(SEARCH('{AWSRootAccessManagement,AccountId} SQSQueueUnlocked', 'Sum', 60))", id = "sqs_unlocked", label = "SQS Queues Unlocked", period = 60 }]
+          ]
+        }
+      },
+
+      # Row 4 — Alarm status
+      {
+        type   = "alarm"
+        x      = 0
+        y      = 21
+        width  = 24
+        height = 4
+        properties = {
+          title = "Active Alarm Status"
+          alarms = [
+            aws_cloudwatch_metric_alarm.unlock_s3_bucket_errors.arn,
+            aws_cloudwatch_metric_alarm.unlock_s3_bucket_throttles.arn,
+            aws_cloudwatch_metric_alarm.unlock_s3_bucket_duration.arn,
+            aws_cloudwatch_metric_alarm.unlock_sqs_queue_errors.arn,
+            aws_cloudwatch_metric_alarm.unlock_sqs_queue_throttles.arn,
+            aws_cloudwatch_metric_alarm.unlock_sqs_queue_duration.arn
+          ]
+        }
+      },
+
+      # Row 5 — Full audit log: S3 (left) | SQS (right)
+      {
+        type   = "log"
+        x      = 0
+        y      = 25
+        width  = 12
+        height = 9
+        properties = {
+          title         = "S3 Unlock Audit Log (all events)"
+          region        = data.aws_region.current.region
+          view          = "table"
+          logGroupNames = [module.unlock_s3_bucket_lambda.cloudwatch_log_group_name]
+          query         = "fields @timestamp, level, message, account_id, bucket_name\n| sort @timestamp desc\n| limit 100"
+        }
+      },
+      {
+        type   = "log"
+        x      = 12
+        y      = 25
+        width  = 12
+        height = 9
+        properties = {
+          title         = "SQS Unlock Audit Log (all events)"
+          region        = data.aws_region.current.region
+          view          = "table"
+          logGroupNames = [module.unlock_sqs_queue_lambda.cloudwatch_log_group_name]
+          query         = "fields @timestamp, level, message, account_id, queue_name\n| sort @timestamp desc\n| limit 100"
+        }
+      },
+
+      # Row 6 — Unlock summary per account (S3 left | SQS right)
+      {
+        type   = "log"
+        x      = 0
+        y      = 34
+        width  = 12
+        height = 9
+        properties = {
+          title         = "S3 Unlock Summary per Account"
+          region        = data.aws_region.current.region
+          view          = "table"
+          logGroupNames = [module.unlock_s3_bucket_lambda.cloudwatch_log_group_name]
+          query         = "fields account_id, bucket_name\n| filter message = \"Bucket policy deleted successfully\"\n| stats count(*) as total_unlocks by account_id\n| sort total_unlocks desc"
+        }
+      },
+      {
+        type   = "log"
+        x      = 12
+        y      = 34
+        width  = 12
+        height = 9
+        properties = {
+          title         = "SQS Unlock Summary per Account"
+          region        = data.aws_region.current.region
+          view          = "table"
+          logGroupNames = [module.unlock_sqs_queue_lambda.cloudwatch_log_group_name]
+          query         = "fields account_id, queue_name\n| filter message = \"Queue policy deleted successfully\"\n| stats count(*) as total_unlocks by account_id\n| sort total_unlocks desc"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_cloudwatch_dashboard" "auditor" {
+  dashboard_name = "Auditor-RootAccess-Compliance"
+  dashboard_body = local.auditor_dashboard_body
+}
